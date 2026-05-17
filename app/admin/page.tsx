@@ -28,7 +28,7 @@ type StoredFixture = {
   scoreA?: number | null; scoreB?: number | null;
 };
 type Pool     = { id: string; eventInstanceId: string; name: string; squadIds: string[] };
-type Squad    = { id: string; divisionId: string; name: string; rosterSize: number };
+type Squad    = { id: string; divisionId: string; name: string };
 type EventDay = { id: string; date: string; venues: string[] };
 type Division = { id: string; name: string; squadIds: string[] };
 type JoinedInstance = {
