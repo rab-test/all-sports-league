@@ -230,7 +230,7 @@ export default function AdminPage() {
   // ── Admin panel ─────────────────────────────────────────────────────────────
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold text-white mb-8">All Sports League — Admin</h1>
+      <h1 className="text-2xl font-bold text-white mb-8">Ultimate Sports League — Admin</h1>
 
       <div className="flex flex-col gap-6">
         {sorted.map(instance => {

@@ -8,10 +8,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        night: '#070b14',
-        charcoal: '#161b2a',
+        night: '#0F1724',
+        charcoal: '#1B2A4A',
         darkslate: '#4d5f7c',
-        accent: '#f4b21b',
+        accent: '#B8972E',
+        red: '#E8192C',
         padel: '#1b9aa7',
         rugby: '#7b3f00',
         soccer: '#175e27',

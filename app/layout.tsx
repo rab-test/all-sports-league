@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { Header } from '../components/layout/Header';
 
 export const metadata: Metadata = {
-  title: 'All Sports League',
+  title: 'Ultimate Sports League',
   description: 'Season 2026 community sports league schedule, standings and admin tools.',
 };
 
