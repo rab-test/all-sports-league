@@ -11,8 +11,6 @@ export type Brand = {
 
 export type Season = {
   id: string;
-  brandId: string;
-  year: number;
   name: string;
 };
 
@@ -20,15 +18,16 @@ export type Division = {
   id: string;
   seasonId: string;
   name: string;
-  squadIds: string[];
+  // squadIds removed — derive via squads.filter(s => s.divisionId === division.id)
 };
 
 export type Squad = {
   id: string;
   divisionId: string;
   name: string;
+  logoUrl?: string;
   captain?: string;
-  rosterSize: number;
+  rosterSize?: number;
 };
 
 export type Player = {
@@ -72,29 +71,25 @@ export type FormatPreset = {
 export type Pool = {
   id: string;
   eventInstanceId: string;
-  label: string; // 'A' | 'B'
+  name: string; // 'A' | 'B'
   squadIds: string[];
 };
 
 export type Fixture = {
   id: string;
   eventInstanceId: string;
-  poolId: string | null; // null for knockout rounds
+  poolId: string | null;
   squadAId: string;
   squadBId: string;
+  scoreA?: number;
+  scoreB?: number;
   round: 'pool' | 'semi' | 'final' | '3rd-4th';
-  sequence: number; // order within the round
+  sequence: number;
+  locked?: boolean;
 };
 
-export type Result = {
-  id: string;
-  fixtureId: string;
-  scoreA: number;
-  scoreB: number;
-  winnerId: string | null; // null = draw
-};
-
-// Runtime join of Fixture + its Result — not stored, computed from the above
-export type Match = Fixture & {
-  result: Result | null;
+export type GolfScore = {
+  eventInstanceId: string;
+  squadId: string;
+  totalScore: number;
 };

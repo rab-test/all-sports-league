@@ -1,12 +1,8 @@
 import Link from 'next/link';
-import { loadJson } from '../../lib/data';
-import type { Division, Squad } from '../../lib/league';
+import { loadDivisions, loadSquads } from '../../lib/data';
 
-export default function SquadsPage() {
-  const divisions = loadJson<Division[]>('divisions.json');
-  const squads    = loadJson<Squad[]>('squads.json');
-
-  const squadById = Object.fromEntries(squads.map(s => [s.id, s]));
+export default async function SquadsPage() {
+  const [divisions, squads] = await Promise.all([loadDivisions(), loadSquads()]);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -15,9 +11,7 @@ export default function SquadsPage() {
 
       <div className="flex flex-col gap-8">
         {divisions.map(division => {
-          const divisionSquads = division.squadIds
-            .map(id => squadById[id])
-            .filter(Boolean);
+          const divisionSquads = squads.filter(s => s.divisionId === division.id);
 
           return (
             <section key={division.id}>
@@ -33,7 +27,6 @@ export default function SquadsPage() {
                     >
                       <span className="w-6 text-sm tabular-nums text-slate-500">{index + 1}</span>
                       <span className="flex-1 font-medium text-white">{squad.name}</span>
-                      <span className="text-xs text-slate-500">{squad.rosterSize} players</span>
                       <span className="text-slate-600 text-xs">›</span>
                     </Link>
                   </li>

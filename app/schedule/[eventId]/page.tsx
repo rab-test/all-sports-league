@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { loadJson } from '../../../lib/data';
-import type { EventDay, EventInstance, Division, Pool, Fixture, Result, Squad } from '../../../lib/league';
+import { notFound } from 'next/navigation';
+import { loadEventInstances, loadEventDays, loadDivisions, loadPools, loadFixtures, loadSquads } from '../../../lib/data';
+import type { Fixture } from '../../../lib/league';
 
 const SPORT_BADGE: Record<string, string> = {
   'Padel':            'bg-padel text-white',
@@ -15,32 +16,23 @@ function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
   return dt.toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 }
 
-function computeStandings(
-  squadIds: string[],
-  fixtures: Fixture[],
-  results: Result[],
-) {
-  const resultMap = Object.fromEntries(results.map(r => [r.fixtureId, r]));
+function computeStandings(squadIds: string[], fixtures: Fixture[]) {
   const stats: Record<string, { p: number; w: number; d: number; l: number; pts: number }> = {};
   for (const id of squadIds) stats[id] = { p: 0, w: 0, d: 0, l: 0, pts: 0 };
 
   for (const fx of fixtures) {
-    const res = resultMap[fx.id];
-    if (!res) continue;
+    if (fx.scoreA === undefined || fx.scoreB === undefined) continue;
     const a = stats[fx.squadAId];
     const b = stats[fx.squadBId];
     if (!a || !b) continue;
     a.p++; b.p++;
-    if (res.winnerId === fx.squadAId)      { a.w++; a.pts += 3; b.l++; }
-    else if (res.winnerId === fx.squadBId) { b.w++; b.pts += 3; a.l++; }
-    else                                   { a.d++; a.pts += 1; b.d++; b.pts += 1; }
+    if (fx.scoreA > fx.scoreB)      { a.w++; a.pts += 3; b.l++; }
+    else if (fx.scoreB > fx.scoreA) { b.w++; b.pts += 3; a.l++; }
+    else                            { a.d++; a.pts += 1; b.d++; b.pts += 1; }
   }
 
   return Object.entries(stats)
@@ -48,39 +40,39 @@ function computeStandings(
     .sort((a, b) => b.pts - a.pts || b.w - a.w);
 }
 
-export default function EventInstancePage({ params }: { params: { eventId: string } }) {
-  const instances  = loadJson<EventInstance[]>('event-instances.json');
-  const eventDays  = loadJson<EventDay[]>('event-days.json');
-  const divisions  = loadJson<Division[]>('divisions.json');
-  const pools      = loadJson<Pool[]>('pools.json');
-  const fixtures   = loadJson<Fixture[]>('fixtures.json');
-  const squads     = loadJson<Squad[]>('squads.json');
-  const results    = loadJson<Result[]>('results.json');
+function ScoreDisplay({ fx }: { fx: Fixture }) {
+  const hasResult = fx.scoreA !== undefined && fx.scoreB !== undefined;
+  return (
+    <span className="text-sm font-bold text-slate-500 shrink-0 tabular-nums">
+      {hasResult ? `${fx.scoreA} – ${fx.scoreB}` : 'vs'}
+    </span>
+  );
+}
+
+export default async function EventInstancePage({ params }: { params: { eventId: string } }) {
+  const [instances, eventDays, divisions, pools, fixtures, squads] = await Promise.all([
+    loadEventInstances(),
+    loadEventDays(),
+    loadDivisions(),
+    loadPools(),
+    loadFixtures(),
+    loadSquads(),
+  ]);
 
   const instance = instances.find(i => i.id === params.eventId);
+  if (!instance) notFound();
 
-  if (!instance) {
-    return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-slate-400 text-lg mb-4">Event not found.</p>
-        <Link href="/schedule" className="text-accent hover:underline text-sm">
-          ← Back to Schedule
-        </Link>
-      </main>
-    );
-  }
-
-  const eventDay   = eventDays.find(d => d.id === instance.eventDayId)!;
-  const division   = divisions.find(d => d.id === instance.divisionId)!;
-  const squadMap   = Object.fromEntries(squads.map(s => [s.id, s]));
+  const eventDay  = eventDays.find(d => d.id === instance.eventDayId)!;
+  const division  = divisions.find(d => d.id === instance.divisionId)!;
+  const squadMap  = Object.fromEntries(squads.map(s => [s.id, s]));
 
   const instancePools    = pools.filter(p => p.eventInstanceId === params.eventId);
   const instanceFixtures = fixtures.filter(f => f.eventInstanceId === params.eventId);
   const poolFixtures     = instanceFixtures.filter(f => f.round === 'pool');
   const knockoutFixtures = instanceFixtures.filter(f => f.round !== 'pool');
 
-  const isGolf      = instance.sport === 'Golf';
-  const badgeClass  = SPORT_BADGE[instance.sport] ?? 'bg-slate-700 text-white';
+  const isGolf     = instance.sport === 'Golf';
+  const badgeClass = SPORT_BADGE[instance.sport] ?? 'bg-slate-700 text-white';
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -102,7 +94,6 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
       </div>
 
       {isGolf ? (
-        /* ── Golf leaderboard ── */
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Leaderboard</h2>
           <div className="rounded-xl border border-slate-700 bg-charcoal p-5 text-center text-slate-400 text-sm">
@@ -124,13 +115,12 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
                   const standings = computeStandings(
                     pool.squadIds,
                     poolFixtures.filter(f => f.poolId === pool.id),
-                    results,
                   );
                   return (
                     <div key={pool.id} className="rounded-xl border border-slate-700 bg-charcoal overflow-hidden">
                       <div className="px-4 py-3 border-b border-slate-700">
                         <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                          Pool {pool.label}
+                          Pool {pool.name}
                         </h3>
                       </div>
                       <table className="w-full text-sm">
@@ -182,7 +172,7 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
                   return (
                     <div key={pool.id}>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                        Pool {pool.label} Fixtures
+                        Pool {pool.name} Fixtures
                       </p>
                       {pf.length === 0 ? (
                         <div className="rounded-xl border border-slate-700 bg-charcoal p-4 text-center text-slate-400 text-sm">
@@ -191,23 +181,18 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
                       ) : (
                         <div className="flex flex-col gap-2">
                           {pf.map(fx => {
-                            const res      = results.find(r => r.fixtureId === fx.id);
-                            const squadA   = squadMap[fx.squadAId]?.name ?? fx.squadAId;
-                            const squadB   = squadMap[fx.squadBId]?.name ?? fx.squadBId;
-                            const hasResult = Boolean(res);
+                            const hasResult = fx.scoreA !== undefined && fx.scoreB !== undefined;
                             return (
                               <div
                                 key={fx.id}
                                 className="rounded-lg border border-slate-700 bg-night/60 px-4 py-3 flex items-center justify-between gap-2"
                               >
                                 <span className={`text-sm font-medium flex-1 ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                  {squadA}
+                                  {squadMap[fx.squadAId]?.name ?? fx.squadAId}
                                 </span>
-                                <span className="text-sm font-bold text-slate-500 shrink-0 tabular-nums">
-                                  {res ? `${res.scoreA} – ${res.scoreB}` : 'vs'}
-                                </span>
+                                <ScoreDisplay fx={fx} />
                                 <span className={`text-sm font-medium flex-1 text-right ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                  {squadB}
+                                  {squadMap[fx.squadBId]?.name ?? fx.squadBId}
                                 </span>
                               </div>
                             );
@@ -230,7 +215,6 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                {/* Semi-finals */}
                 {(() => {
                   const semis      = knockoutFixtures.filter(f => f.round === 'semi').sort((a, b) => a.sequence - b.sequence);
                   const finals     = knockoutFixtures.filter(f => f.round === 'final');
@@ -243,24 +227,16 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Semi-Finals</p>
                           <div className="flex flex-col gap-2">
                             {semis.map((fx, i) => {
-                              const res    = results.find(r => r.fixtureId === fx.id);
-                              const squadA = squadMap[fx.squadAId]?.name ?? fx.squadAId;
-                              const squadB = squadMap[fx.squadBId]?.name ?? fx.squadBId;
-                              const hasResult = Boolean(res);
+                              const hasResult = fx.scoreA !== undefined && fx.scoreB !== undefined;
                               return (
-                                <div
-                                  key={fx.id}
-                                  className="rounded-lg border border-slate-700 bg-night/60 px-4 py-3 flex items-center gap-2"
-                                >
+                                <div key={fx.id} className="rounded-lg border border-slate-700 bg-night/60 px-4 py-3 flex items-center gap-2">
                                   <span className="text-xs text-slate-600 shrink-0 w-6">SF{i + 1}</span>
                                   <span className={`text-sm font-medium flex-1 ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                    {squadA}
+                                    {squadMap[fx.squadAId]?.name || 'TBD'}
                                   </span>
-                                  <span className="text-sm font-bold text-slate-500 shrink-0 tabular-nums">
-                                    {res ? `${res.scoreA} – ${res.scoreB}` : 'vs'}
-                                  </span>
+                                  <ScoreDisplay fx={fx} />
                                   <span className={`text-sm font-medium flex-1 text-right ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                    {squadB}
+                                    {squadMap[fx.squadBId]?.name || 'TBD'}
                                   </span>
                                 </div>
                               );
@@ -274,23 +250,17 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Final</p>
                           <div className="flex flex-col gap-2">
                             {finals.map(fx => {
-                              const res    = results.find(r => r.fixtureId === fx.id);
-                              const squadA = squadMap[fx.squadAId]?.name ?? fx.squadAId;
-                              const squadB = squadMap[fx.squadBId]?.name ?? fx.squadBId;
-                              const hasResult = Boolean(res);
+                              const hasResult = fx.scoreA !== undefined && fx.scoreB !== undefined;
                               return (
-                                <div
-                                  key={fx.id}
-                                  className="rounded-lg border border-accent/30 bg-night/60 px-4 py-3 flex items-center justify-between gap-2"
-                                >
+                                <div key={fx.id} className="rounded-lg border border-accent/30 bg-night/60 px-4 py-3 flex items-center justify-between gap-2">
                                   <span className={`text-sm font-medium flex-1 ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                    {squadA}
+                                    {squadMap[fx.squadAId]?.name || 'TBD'}
                                   </span>
                                   <span className="text-sm font-bold text-accent shrink-0 tabular-nums">
-                                    {res ? `${res.scoreA} – ${res.scoreB}` : 'Final'}
+                                    {hasResult ? `${fx.scoreA} – ${fx.scoreB}` : 'Final'}
                                   </span>
                                   <span className={`text-sm font-medium flex-1 text-right ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                    {squadB}
+                                    {squadMap[fx.squadBId]?.name || 'TBD'}
                                   </span>
                                 </div>
                               );
@@ -304,23 +274,15 @@ export default function EventInstancePage({ params }: { params: { eventId: strin
                           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">3rd / 4th Playoff</p>
                           <div className="flex flex-col gap-2">
                             {thirdFourth.map(fx => {
-                              const res    = results.find(r => r.fixtureId === fx.id);
-                              const squadA = squadMap[fx.squadAId]?.name ?? fx.squadAId;
-                              const squadB = squadMap[fx.squadBId]?.name ?? fx.squadBId;
-                              const hasResult = Boolean(res);
+                              const hasResult = fx.scoreA !== undefined && fx.scoreB !== undefined;
                               return (
-                                <div
-                                  key={fx.id}
-                                  className="rounded-lg border border-slate-700 bg-night/60 px-4 py-3 flex items-center justify-between gap-2"
-                                >
+                                <div key={fx.id} className="rounded-lg border border-slate-700 bg-night/60 px-4 py-3 flex items-center justify-between gap-2">
                                   <span className={`text-sm font-medium flex-1 ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                    {squadA}
+                                    {squadMap[fx.squadAId]?.name || 'TBD'}
                                   </span>
-                                  <span className="text-sm font-bold text-slate-500 shrink-0 tabular-nums">
-                                    {res ? `${res.scoreA} – ${res.scoreB}` : 'vs'}
-                                  </span>
+                                  <ScoreDisplay fx={fx} />
                                   <span className={`text-sm font-medium flex-1 text-right ${hasResult ? 'text-white' : 'text-slate-400'}`}>
-                                    {squadB}
+                                    {squadMap[fx.squadBId]?.name || 'TBD'}
                                   </span>
                                 </div>
                               );

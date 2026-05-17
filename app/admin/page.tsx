@@ -27,7 +27,7 @@ type StoredFixture = {
   squadAId: string; squadBId: string; round: string; sequence: number;
   scoreA?: number | null; scoreB?: number | null;
 };
-type Pool     = { id: string; eventInstanceId: string; label: string; squadIds: string[] };
+type Pool     = { id: string; eventInstanceId: string; name: string; squadIds: string[] };
 type Squad    = { id: string; divisionId: string; name: string; rosterSize: number };
 type EventDay = { id: string; date: string; venues: string[] };
 type Division = { id: string; name: string; squadIds: string[] };
@@ -238,6 +238,12 @@ export default function AdminPage() {
           const instanceFixtures = data.fixtures.filter(
             f => f.eventInstanceId === instance.id && f.round === 'pool'
           );
+          const knockoutFixtures = data.fixtures
+            .filter(f => f.eventInstanceId === instance.id && f.round !== 'pool')
+            .sort((a, b) => {
+              const order: Record<string, number> = { semi: 0, final: 1, '3rd-4th': 2 };
+              return (order[a.round] ?? 3) - (order[b.round] ?? 3) || a.sequence - b.sequence;
+            });
           const divisionSquads   = data.squads.filter(s => s.divisionId === instance.divisionId);
           const isGolf           = instance.sport === 'Golf';
           const isLocked         = instance.locked;
@@ -340,7 +346,7 @@ export default function AdminPage() {
                           return (
                             <div key={pool.id}>
                               <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                                Pool {pool.label}
+                                Pool {pool.name}
                               </p>
 
                               {/* Squad chips */}
@@ -413,6 +419,70 @@ export default function AdminPage() {
                             </div>
                           );
                         })}
+                      </div>
+                    )}
+
+                    {/* ── Knockout fixtures ── */}
+                    {knockoutFixtures.length > 0 && (
+                      <div className="mt-6">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Knockout</p>
+                        <div className="flex flex-col gap-2">
+                          {knockoutFixtures.map(fx => {
+                            const inp = scoreInputs[fx.id] ?? { a: '', b: '' };
+                            const label = fx.round === 'semi'
+                              ? `SF${fx.sequence}`
+                              : fx.round === 'final'
+                              ? 'Final'
+                              : '3rd/4th';
+                            const hasBothSquads = !!fx.squadAId && !!fx.squadBId;
+                            return (
+                              <div
+                                key={fx.id}
+                                className="flex items-center gap-2 rounded-lg border border-slate-700 bg-night/60 px-3 py-2"
+                              >
+                                <span className="text-xs text-slate-500 shrink-0 w-12">{label}</span>
+                                <span className="text-sm text-slate-300 flex-1 min-w-0 truncate">
+                                  {squadMap[fx.squadAId]?.name || 'TBD'}
+                                </span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  disabled={isLocked || !hasBothSquads}
+                                  value={inp.a}
+                                  onChange={e => setScoreInputs(prev => ({
+                                    ...prev,
+                                    [fx.id]: { ...prev[fx.id], a: e.target.value },
+                                  }))}
+                                  className="w-14 shrink-0 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                                />
+                                <span className="text-slate-600 text-xs shrink-0">–</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="0"
+                                  disabled={isLocked || !hasBothSquads}
+                                  value={inp.b}
+                                  onChange={e => setScoreInputs(prev => ({
+                                    ...prev,
+                                    [fx.id]: { ...prev[fx.id], b: e.target.value },
+                                  }))}
+                                  className="w-14 shrink-0 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                                />
+                                <span className="text-sm text-slate-300 flex-1 min-w-0 truncate text-right">
+                                  {squadMap[fx.squadBId]?.name || 'TBD'}
+                                </span>
+                                <button
+                                  disabled={isLocked || !hasBothSquads || savingFixture === fx.id}
+                                  onClick={() => saveScore(fx.id)}
+                                  className="ml-1 shrink-0 rounded bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                >
+                                  {savingFixture === fx.id ? '…' : 'Save'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>

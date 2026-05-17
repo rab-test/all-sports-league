@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { loadJson } from '../../../lib/data';
-import type { Squad, Division, Player } from '../../../lib/league';
+import { loadSquads, loadDivisions, loadPlayers } from '../../../lib/data';
 
-export default function SquadPage({ params }: { params: { squadId: string } }) {
-  const squads    = loadJson<Squad[]>('squads.json');
-  const divisions = loadJson<Division[]>('divisions.json');
-  const players   = loadJson<Player[]>('players.json');
+export default async function SquadPage({ params }: { params: { squadId: string } }) {
+  const [squads, divisions, players] = await Promise.all([
+    loadSquads(),
+    loadDivisions(),
+    loadPlayers(),
+  ]);
 
   const squad = squads.find(s => s.id === params.squadId);
   if (!squad) notFound();

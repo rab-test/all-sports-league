@@ -1,6 +1,5 @@
 import Link from 'next/link';
-import { loadJson } from '../../lib/data';
-import type { EventDay, EventInstance, Division } from '../../lib/league';
+import { loadEventDays, loadEventInstances, loadDivisions } from '../../lib/data';
 
 const SPORT_STYLES: Record<string, string> = {
   'Padel':             'bg-padel text-white',
@@ -20,13 +19,14 @@ function formatDate(iso: string): { weekday: string; date: string } {
   };
 }
 
-export default function SchedulePage() {
-  const eventDays      = loadJson<EventDay[]>('event-days.json');
-  const eventInstances = loadJson<EventInstance[]>('event-instances.json');
-  const divisions      = loadJson<Division[]>('divisions.json');
+export default async function SchedulePage() {
+  const [eventDays, eventInstances, divisions] = await Promise.all([
+    loadEventDays(),
+    loadEventInstances(),
+    loadDivisions(),
+  ]);
 
   const divisionById = Object.fromEntries(divisions.map(d => [d.id, d]));
-
   const sorted = [...eventDays].sort((a, b) => a.date.localeCompare(b.date));
 
   return (

@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
-import { loadJson } from '../../../../lib/data';
-import type { EventInstance, Squad, Pool, Fixture } from '../../../../lib/league';
-import fs from 'fs';
-import path from 'path';
-
-function writeJson(filename: string, data: unknown) {
-  fs.writeFileSync(path.join(process.cwd(), 'data', filename), JSON.stringify(data, null, 2));
-}
+import { fetchTable, createRecords, deleteRecords } from '../../../../lib/airtable';
+import { loadEventInstances, loadSquads } from '../../../../lib/data';
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -17,64 +11,96 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function roundRobin(pool: Pool, eventInstanceId: string): Fixture[] {
-  const out: Fixture[] = [];
-  const ids = pool.squadIds;
+function buildRoundRobin(
+  squadIds: string[],
+  eventInstanceId: string,
+  poolId: string,
+  poolLabel: string,
+) {
+  const fixtures: Record<string, unknown>[] = [];
   let seq = 0;
-  for (let i = 0; i < ids.length; i++) {
-    for (let j = i + 1; j < ids.length; j++) {
+  for (let i = 0; i < squadIds.length; i++) {
+    for (let j = i + 1; j < squadIds.length; j++) {
       seq++;
-      out.push({
-        id: `fixture-${eventInstanceId}-${pool.label.toLowerCase()}-${seq}`,
+      fixtures.push({
+        id: `fixture-${eventInstanceId}-${poolLabel.toLowerCase()}-${seq}`,
         eventInstanceId,
-        poolId: pool.id,
-        squadAId: ids[i],
-        squadBId: ids[j],
+        poolId,
+        squadAId: squadIds[i],
+        squadBId: squadIds[j],
         round: 'pool',
         sequence: seq,
       });
     }
   }
-  return out;
+  return fixtures;
 }
 
 export async function POST(request: Request) {
   const { eventInstanceId } = await request.json();
 
-  const instances = loadJson<EventInstance[]>('event-instances.json');
-  const instance  = instances.find(i => i.id === eventInstanceId);
+  const [instances, squads, existingPools, existingFixtures] = await Promise.all([
+    loadEventInstances(),
+    loadSquads(),
+    fetchTable<Record<string, unknown>>('Pools'),
+    fetchTable<Record<string, unknown>>('Fixtures'),
+  ]);
+
+  const instance = instances.find(i => i.id === eventInstanceId);
   if (!instance) {
     return NextResponse.json({ error: 'Event instance not found' }, { status: 404 });
   }
 
-  const squads         = loadJson<Squad[]>('squads.json');
   const divisionSquads = squads.filter(s => s.divisionId === instance.divisionId);
   const shuffled       = shuffle(divisionSquads);
   const half           = Math.ceil(shuffled.length / 2);
 
-  const poolA: Pool = {
-    id: `pool-${eventInstanceId}-a`,
-    eventInstanceId,
-    label: 'A',
-    squadIds: shuffled.slice(0, half).map(s => s.id),
-  };
-  const poolB: Pool = {
-    id: `pool-${eventInstanceId}-b`,
-    eventInstanceId,
-    label: 'B',
-    squadIds: shuffled.slice(half).map(s => s.id),
-  };
+  const poolAId       = `pool-${eventInstanceId}-a`;
+  const poolBId       = `pool-${eventInstanceId}-b`;
+  const poolASquadIds = shuffled.slice(0, half).map(s => s.id);
+  const poolBSquadIds = shuffled.slice(half).map(s => s.id);
 
-  const newFixtures = [...roundRobin(poolA, eventInstanceId), ...roundRobin(poolB, eventInstanceId)];
+  // Delete existing pools and fixtures for this event instance
+  const poolsToDelete    = existingPools.filter(p => p.eventInstanceId === eventInstanceId);
+  const fixturesToDelete = existingFixtures.filter(f => f.eventInstanceId === eventInstanceId);
 
-  const existingPools    = loadJson<Pool[]>('pools.json');
-  const existingFixtures = loadJson<Fixture[]>('fixtures.json');
+  await Promise.all([
+    poolsToDelete.length > 0
+      ? deleteRecords('Pools', poolsToDelete.map(p => p._recordId as string))
+      : Promise.resolve(),
+    fixturesToDelete.length > 0
+      ? deleteRecords('Fixtures', fixturesToDelete.map(f => f._recordId as string))
+      : Promise.resolve(),
+  ]);
 
-  const updatedPools    = [...existingPools.filter(p => p.eventInstanceId !== eventInstanceId), poolA, poolB];
-  const updatedFixtures = [...existingFixtures.filter(f => f.eventInstanceId !== eventInstanceId), ...newFixtures];
+  // Create new pools
+  await createRecords('Pools', [
+    { id: poolAId, eventInstanceId, name: 'A', squadIds: JSON.stringify(poolASquadIds) },
+    { id: poolBId, eventInstanceId, name: 'B', squadIds: JSON.stringify(poolBSquadIds) },
+  ]);
 
-  writeJson('pools.json', updatedPools);
-  writeJson('fixtures.json', updatedFixtures);
+  // Create fixtures
+  const newFixtureFields = [
+    ...buildRoundRobin(poolASquadIds, eventInstanceId, poolAId, 'A'),
+    ...buildRoundRobin(poolBSquadIds, eventInstanceId, poolBId, 'B'),
+  ];
+  await createRecords('Fixtures', newFixtureFields);
 
-  return NextResponse.json({ success: true, pools: [poolA, poolB], fixtures: newFixtures });
+  // Create knockout stubs so the bracket is visible immediately (squads fill in after pool results)
+  const knockoutStubs = [
+    { id: `sf1-${eventInstanceId}`,    eventInstanceId, poolId: '', squadAId: '', squadBId: '', round: 'semi',    sequence: 1 },
+    { id: `sf2-${eventInstanceId}`,    eventInstanceId, poolId: '', squadAId: '', squadBId: '', round: 'semi',    sequence: 2 },
+    { id: `final-${eventInstanceId}`,  eventInstanceId, poolId: '', squadAId: '', squadBId: '', round: 'final',   sequence: 1 },
+    { id: `3rd4th-${eventInstanceId}`, eventInstanceId, poolId: '', squadAId: '', squadBId: '', round: '3rd-4th', sequence: 1 },
+  ];
+  await createRecords('Fixtures', knockoutStubs);
+
+  return NextResponse.json({
+    success: true,
+    pools: [
+      { id: poolAId, eventInstanceId, name: 'A', squadIds: poolASquadIds },
+      { id: poolBId, eventInstanceId, name: 'B', squadIds: poolBSquadIds },
+    ],
+    fixtures: [...newFixtureFields, ...knockoutStubs],
+  });
 }
