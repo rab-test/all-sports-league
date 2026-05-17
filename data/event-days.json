@@ -1,0 +1,44 @@
+[
+  {
+    "id": "event-day-1",
+    "seasonId": "season-2026",
+    "date": "2026-06-06",
+    "venues": ["Groot Drakenstein GC"]
+  },
+  {
+    "id": "event-day-2",
+    "seasonId": "season-2026",
+    "date": "2026-07-11",
+    "venues": ["Groot Drakenstein GC"]
+  },
+  {
+    "id": "event-day-3",
+    "seasonId": "season-2026",
+    "date": "2026-08-01",
+    "venues": ["Hellenic"]
+  },
+  {
+    "id": "event-day-4",
+    "seasonId": "season-2026",
+    "date": "2026-09-13",
+    "venues": ["Boschenmeer", "Kuilsriver"]
+  },
+  {
+    "id": "event-day-5",
+    "seasonId": "season-2026",
+    "date": "2026-10-17",
+    "venues": ["Groot Drakenstein GC"]
+  },
+  {
+    "id": "event-day-6",
+    "seasonId": "season-2026",
+    "date": "2026-10-24",
+    "venues": ["Groot Drakenstein GC"]
+  },
+  {
+    "id": "event-day-7",
+    "seasonId": "season-2026",
+    "date": "2026-11-14",
+    "venues": ["Groot Drakenstein GC"]
+  }
+]

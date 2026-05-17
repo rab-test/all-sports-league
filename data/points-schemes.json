@@ -1,0 +1,30 @@
+[
+  {
+    "id": "points-scheme-a",
+    "name": "Standard (Preset A)",
+    "sportType": "team",
+    "placementPoints": {
+      "1": 8,
+      "2": 6,
+      "3": 4,
+      "4": 3,
+      "pool-3": 1,
+      "pool-4": 0
+    }
+  },
+  {
+    "id": "points-scheme-b",
+    "name": "Golf Leaderboard (Preset B)",
+    "sportType": "golf",
+    "placementPoints": {
+      "1": 8,
+      "2": 6,
+      "3": 4,
+      "4": 3,
+      "5": 2,
+      "6": 1,
+      "7": 0,
+      "8": 0
+    }
+  }
+]

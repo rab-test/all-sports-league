@@ -1,0 +1,14 @@
+[
+  {
+    "id": "preset-a",
+    "name": "2 Pools → Knockout",
+    "type": "preset-a",
+    "description": "2 pools of 4, pool round robin, semis, final, 3rd/4th playoff"
+  },
+  {
+    "id": "preset-b",
+    "name": "Golf Leaderboard",
+    "type": "preset-b",
+    "description": "Golf leaderboard day — no matchups, rank squads by total team score"
+  }
+]

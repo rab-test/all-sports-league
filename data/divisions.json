@@ -1,0 +1,32 @@
+[
+  {
+    "id": "division-premier",
+    "seasonId": "season-2026",
+    "name": "Premier",
+    "squadIds": [
+      "squad-1",
+      "squad-2",
+      "squad-3",
+      "squad-4",
+      "squad-5",
+      "squad-6",
+      "squad-7",
+      "squad-8"
+    ]
+  },
+  {
+    "id": "division-challenger",
+    "seasonId": "season-2026",
+    "name": "Challenger",
+    "squadIds": [
+      "squad-9",
+      "squad-10",
+      "squad-11",
+      "squad-12",
+      "squad-13",
+      "squad-14",
+      "squad-15",
+      "squad-16"
+    ]
+  }
+]

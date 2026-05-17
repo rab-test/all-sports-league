@@ -1,0 +1,110 @@
+[
+  {
+    "id": "event-instance-1",
+    "eventDayId": "event-day-1",
+    "divisionId": "division-premier",
+    "sport": "Padel",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-2",
+    "eventDayId": "event-day-1",
+    "divisionId": "division-challenger",
+    "sport": "Touch Rugby",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-3",
+    "eventDayId": "event-day-2",
+    "divisionId": "division-premier",
+    "sport": "Touch Rugby",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-4",
+    "eventDayId": "event-day-2",
+    "divisionId": "division-challenger",
+    "sport": "Padel",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-5",
+    "eventDayId": "event-day-3",
+    "divisionId": "division-premier",
+    "sport": "Fives Soccer",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-6",
+    "eventDayId": "event-day-3",
+    "divisionId": "division-challenger",
+    "sport": "Fives Soccer",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-7",
+    "eventDayId": "event-day-4",
+    "divisionId": "division-premier",
+    "sport": "Golf",
+    "formatPresetId": "preset-b",
+    "pointsSchemeId": "points-scheme-b",
+    "locked": false
+  },
+  {
+    "id": "event-instance-8",
+    "eventDayId": "event-day-4",
+    "divisionId": "division-challenger",
+    "sport": "Golf",
+    "formatPresetId": "preset-b",
+    "pointsSchemeId": "points-scheme-b",
+    "locked": false
+  },
+  {
+    "id": "event-instance-9",
+    "eventDayId": "event-day-5",
+    "divisionId": "division-challenger",
+    "sport": "6-a-side Cricket",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-10",
+    "eventDayId": "event-day-6",
+    "divisionId": "division-premier",
+    "sport": "6-a-side Cricket",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-11",
+    "eventDayId": "event-day-7",
+    "divisionId": "division-premier",
+    "sport": "Finals Weekend",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  },
+  {
+    "id": "event-instance-12",
+    "eventDayId": "event-day-7",
+    "divisionId": "division-challenger",
+    "sport": "Finals Weekend",
+    "formatPresetId": "preset-a",
+    "pointsSchemeId": "points-scheme-a",
+    "locked": false
+  }
+]

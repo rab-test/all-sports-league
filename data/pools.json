@@ -1,0 +1,46 @@
+[
+  {
+    "id": "pool-event-instance-2-a",
+    "eventInstanceId": "event-instance-2",
+    "label": "A",
+    "squadIds": [
+      "squad-9",
+      "squad-16",
+      "squad-14",
+      "squad-15"
+    ]
+  },
+  {
+    "id": "pool-event-instance-2-b",
+    "eventInstanceId": "event-instance-2",
+    "label": "B",
+    "squadIds": [
+      "squad-13",
+      "squad-11",
+      "squad-12",
+      "squad-10"
+    ]
+  },
+  {
+    "id": "pool-event-instance-1-a",
+    "eventInstanceId": "event-instance-1",
+    "label": "A",
+    "squadIds": [
+      "squad-1",
+      "squad-4",
+      "squad-5",
+      "squad-6"
+    ]
+  },
+  {
+    "id": "pool-event-instance-1-b",
+    "eventInstanceId": "event-instance-1",
+    "label": "B",
+    "squadIds": [
+      "squad-3",
+      "squad-7",
+      "squad-2",
+      "squad-8"
+    ]
+  }
+]

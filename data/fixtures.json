@@ -1,0 +1,242 @@
+[
+  {
+    "id": "fixture-event-instance-2-a-1",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-a",
+    "squadAId": "squad-9",
+    "squadBId": "squad-16",
+    "round": "pool",
+    "sequence": 1
+  },
+  {
+    "id": "fixture-event-instance-2-a-2",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-a",
+    "squadAId": "squad-9",
+    "squadBId": "squad-14",
+    "round": "pool",
+    "sequence": 2
+  },
+  {
+    "id": "fixture-event-instance-2-a-3",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-a",
+    "squadAId": "squad-9",
+    "squadBId": "squad-15",
+    "round": "pool",
+    "sequence": 3
+  },
+  {
+    "id": "fixture-event-instance-2-a-4",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-a",
+    "squadAId": "squad-16",
+    "squadBId": "squad-14",
+    "round": "pool",
+    "sequence": 4
+  },
+  {
+    "id": "fixture-event-instance-2-a-5",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-a",
+    "squadAId": "squad-16",
+    "squadBId": "squad-15",
+    "round": "pool",
+    "sequence": 5
+  },
+  {
+    "id": "fixture-event-instance-2-a-6",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-a",
+    "squadAId": "squad-14",
+    "squadBId": "squad-15",
+    "round": "pool",
+    "sequence": 6
+  },
+  {
+    "id": "fixture-event-instance-2-b-1",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-b",
+    "squadAId": "squad-13",
+    "squadBId": "squad-11",
+    "round": "pool",
+    "sequence": 1
+  },
+  {
+    "id": "fixture-event-instance-2-b-2",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-b",
+    "squadAId": "squad-13",
+    "squadBId": "squad-12",
+    "round": "pool",
+    "sequence": 2
+  },
+  {
+    "id": "fixture-event-instance-2-b-3",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-b",
+    "squadAId": "squad-13",
+    "squadBId": "squad-10",
+    "round": "pool",
+    "sequence": 3
+  },
+  {
+    "id": "fixture-event-instance-2-b-4",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-b",
+    "squadAId": "squad-11",
+    "squadBId": "squad-12",
+    "round": "pool",
+    "sequence": 4
+  },
+  {
+    "id": "fixture-event-instance-2-b-5",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-b",
+    "squadAId": "squad-11",
+    "squadBId": "squad-10",
+    "round": "pool",
+    "sequence": 5
+  },
+  {
+    "id": "fixture-event-instance-2-b-6",
+    "eventInstanceId": "event-instance-2",
+    "poolId": "pool-event-instance-2-b",
+    "squadAId": "squad-12",
+    "squadBId": "squad-10",
+    "round": "pool",
+    "sequence": 6
+  },
+  {
+    "id": "fixture-event-instance-1-a-1",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-a",
+    "squadAId": "squad-1",
+    "squadBId": "squad-4",
+    "round": "pool",
+    "sequence": 1,
+    "scoreA": 3,
+    "scoreB": 0
+  },
+  {
+    "id": "fixture-event-instance-1-a-2",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-a",
+    "squadAId": "squad-1",
+    "squadBId": "squad-5",
+    "round": "pool",
+    "sequence": 2,
+    "scoreA": 2,
+    "scoreB": 1
+  },
+  {
+    "id": "fixture-event-instance-1-a-3",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-a",
+    "squadAId": "squad-1",
+    "squadBId": "squad-6",
+    "round": "pool",
+    "sequence": 3,
+    "scoreA": 1,
+    "scoreB": 2
+  },
+  {
+    "id": "fixture-event-instance-1-a-4",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-a",
+    "squadAId": "squad-4",
+    "squadBId": "squad-5",
+    "round": "pool",
+    "sequence": 4,
+    "scoreA": 0,
+    "scoreB": 3
+  },
+  {
+    "id": "fixture-event-instance-1-a-5",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-a",
+    "squadAId": "squad-4",
+    "squadBId": "squad-6",
+    "round": "pool",
+    "sequence": 5,
+    "scoreA": 3,
+    "scoreB": 0
+  },
+  {
+    "id": "fixture-event-instance-1-a-6",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-a",
+    "squadAId": "squad-5",
+    "squadBId": "squad-6",
+    "round": "pool",
+    "sequence": 6,
+    "scoreA": 2,
+    "scoreB": 1
+  },
+  {
+    "id": "fixture-event-instance-1-b-1",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-b",
+    "squadAId": "squad-3",
+    "squadBId": "squad-7",
+    "round": "pool",
+    "sequence": 1,
+    "scoreA": 0,
+    "scoreB": 3
+  },
+  {
+    "id": "fixture-event-instance-1-b-2",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-b",
+    "squadAId": "squad-3",
+    "squadBId": "squad-2",
+    "round": "pool",
+    "sequence": 2,
+    "scoreA": 1,
+    "scoreB": 2
+  },
+  {
+    "id": "fixture-event-instance-1-b-3",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-b",
+    "squadAId": "squad-3",
+    "squadBId": "squad-8",
+    "round": "pool",
+    "sequence": 3,
+    "scoreA": 2,
+    "scoreB": 1
+  },
+  {
+    "id": "fixture-event-instance-1-b-4",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-b",
+    "squadAId": "squad-7",
+    "squadBId": "squad-2",
+    "round": "pool",
+    "sequence": 4,
+    "scoreA": 0,
+    "scoreB": 3
+  },
+  {
+    "id": "fixture-event-instance-1-b-5",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-b",
+    "squadAId": "squad-7",
+    "squadBId": "squad-8",
+    "round": "pool",
+    "sequence": 5,
+    "scoreA": 2,
+    "scoreB": 1
+  },
+  {
+    "id": "fixture-event-instance-1-b-6",
+    "eventInstanceId": "event-instance-1",
+    "poolId": "pool-event-instance-1-b",
+    "squadAId": "squad-2",
+    "squadBId": "squad-8",
+    "round": "pool",
+    "sequence": 6,
+    "scoreA": 2,
+    "scoreB": 1
+  }
+]
