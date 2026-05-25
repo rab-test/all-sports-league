@@ -6,6 +6,18 @@ import {
 } from '../../../lib/data';
 import type { Fixture, Pool } from '../../../lib/league';
 
+const SPORT_BORDER: Record<string, string> = {
+  'Padel':             'border-l-padel',
+  'Touch Rugby':       'border-l-rugby',
+  'Fives Soccer':      'border-l-soccer',
+  '6-a-side Cricket':  'border-l-cricket',
+  'Golf':              'border-l-golf',
+};
+
+const ROUND_LABEL: Record<string, string> = {
+  pool: 'Pool', semi: 'Semi-Final', final: 'Final', '3rd-4th': '3rd / 4th',
+};
+
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(y, m - 1, d);
@@ -43,7 +55,6 @@ function getSquadEventPoints(
     if (finalFx.squadAId === squadId) return finalFx.scoreA > finalFx.scoreB ? 8 : 6;
     if (finalFx.squadBId === squadId) return finalFx.scoreB > finalFx.scoreA ? 8 : 6;
   }
-
   if (thirdFx?.scoreA !== undefined && thirdFx?.scoreB !== undefined) {
     if (thirdFx.squadAId === squadId) return thirdFx.scoreA > thirdFx.scoreB ? 4 : 3;
     if (thirdFx.squadBId === squadId) return thirdFx.scoreB > thirdFx.scoreA ? 4 : 3;
@@ -53,13 +64,8 @@ function getSquadEventPoints(
   if (!pool) return 0;
   const pFxs = poolFxs.filter(f => f.poolId === pool.id);
   if (!pFxs.every(f => f.scoreA !== undefined && f.scoreB !== undefined)) return 0;
-  const standings = computePoolStandings(pool.squadIds, pFxs);
-  return standings.findIndex(s => s.id === squadId) === 2 ? 1 : 0;
+  return computePoolStandings(pool.squadIds, pFxs).findIndex(s => s.id === squadId) === 2 ? 1 : 0;
 }
-
-const ROUND_LABEL: Record<string, string> = {
-  pool: 'Pool', semi: 'Semi-Final', final: 'Final', '3rd-4th': '3rd / 4th',
-};
 
 export default async function SquadPage({ params }: { params: { squadId: string } }) {
   const [squads, divisions, players, eventDays, eventInstances, pools, fixtures] = await Promise.all([
@@ -83,16 +89,13 @@ export default async function SquadPage({ params }: { params: { squadId: string 
   const eventDayById = Object.fromEntries(eventDays.map(d => [d.id, d]));
 
   const divisionInstances = eventInstances.filter(i => i.divisionId === squad.divisionId);
-
   const today = new Date().toISOString().split('T')[0];
 
-  // Past events: eventDay.date < today
   const pastInstances = divisionInstances.filter(inst => {
     const day = eventDayById[inst.eventDayId];
     return day && day.date < today;
   });
 
-  // Upcoming events: eventDay.date >= today
   const upcomingInstances = divisionInstances
     .filter(inst => {
       const day = eventDayById[inst.eventDayId];
@@ -104,7 +107,6 @@ export default async function SquadPage({ params }: { params: { squadId: string 
       return da.localeCompare(db);
     });
 
-  // Cumulative season points
   let totalPoints = 0;
   for (const inst of divisionInstances) {
     totalPoints += getSquadEventPoints(
@@ -114,7 +116,6 @@ export default async function SquadPage({ params }: { params: { squadId: string 
     );
   }
 
-  // Division rank
   const divSquads = squads.filter(s => s.divisionId === squad.divisionId);
   const ranked = divSquads
     .map(s => {
@@ -135,100 +136,104 @@ export default async function SquadPage({ params }: { params: { squadId: string 
     <main className="mx-auto max-w-2xl px-4 py-8">
       <Link
         href="/squads"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate-400 transition-colors hover:text-white"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-muted transition-colors hover:text-navy"
       >
         ← Squads
       </Link>
 
-      {/* Header */}
-      <div className="mb-8 mt-4">
-        <div className="mb-2 flex items-center gap-2">
-          {division && (
-            <span
-              className={`rounded-full border px-3 py-0.5 text-xs font-bold ${
-                isPremier
-                  ? 'border-accent/40 bg-accent/10 text-accent'
-                  : 'border-slate-600 bg-slate-800 text-slate-300'
-              }`}
-            >
-              {division.name}
-            </span>
-          )}
+      {/* Header card — navy background */}
+      <div className="mb-8 mt-4 overflow-hidden rounded-xl bg-navy px-6 py-6 shadow-sm">
+        <div className="mb-2">
+          <span
+            className={`rounded-full border px-3 py-0.5 text-xs font-bold ${
+              isPremier
+                ? 'border-accent/50 bg-accent/20 text-accent'
+                : 'border-white/20 bg-white/10 text-white/70'
+            }`}
+          >
+            {division?.name ?? ''}
+          </span>
         </div>
-        <h1 className="text-4xl font-bold text-white">{squad.name}</h1>
-        <p className="mt-1 text-sm text-slate-400">2026 Season · {roster.length} players</p>
+        <h1 className="text-4xl font-black text-white">{squad.name}</h1>
+        <p className="mt-1 text-sm text-white/60">2026 Season · {roster.length} players</p>
       </div>
-
-      {/* Roster */}
-      <section className="mb-8">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Roster</h2>
-        <ol className="overflow-hidden rounded-xl border border-slate-700">
-          {roster.map((player, index) => (
-            <li
-              key={player.id}
-              className="flex items-center gap-4 border-b border-slate-800 bg-charcoal px-5 py-3 last:border-0"
-            >
-              <span className="w-6 text-sm tabular-nums text-slate-500">{index + 1}</span>
-              <span className="text-white">{player.name}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
 
       {/* Season Standing */}
       <section className="mb-8">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Season Standing</h2>
-        <div className="flex items-center gap-8 rounded-xl border border-slate-700 bg-charcoal px-6 py-5">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Season Standing</h2>
+        <div className="flex items-center gap-8 rounded-xl border border-gray-200 bg-white px-6 py-5 shadow-sm">
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold tabular-nums text-accent">{totalPoints}</span>
-            <span className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">Points</span>
+            <span className="text-4xl font-black tabular-nums text-accent">{totalPoints}</span>
+            <span className="mt-0.5 text-xs font-bold uppercase tracking-wider text-muted">Points</span>
           </div>
-          <div className="h-12 w-px bg-slate-700" />
+          <div className="h-12 w-px bg-gray-200" />
           <div className="flex flex-col items-center">
-            <span className="text-4xl font-bold tabular-nums text-white">#{divisionRank}</span>
-            <span className="mt-0.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <span className="text-4xl font-black tabular-nums text-navy">#{divisionRank}</span>
+            <span className="mt-0.5 text-xs font-bold uppercase tracking-wider text-muted">
               {division?.name ?? ''} Rank
             </span>
           </div>
         </div>
       </section>
 
+      {/* Roster */}
+      <section className="mb-8">
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Roster</h2>
+        <ol className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          {roster.map((player, index) => (
+            <li
+              key={player.id}
+              className={`flex items-center gap-4 border-t border-gray-100 px-5 py-3 first:border-0 ${
+                index % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'
+              }`}
+            >
+              <span className="w-6 text-sm tabular-nums text-muted">{index + 1}</span>
+              <span className="font-semibold text-navy">{player.name}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       {/* Results */}
       <section className="mb-8">
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Results</h2>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Results</h2>
         {pastInstances.length === 0 ? (
-          <div className="rounded-xl border border-slate-700 bg-charcoal p-5 text-center text-sm text-slate-400">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
             No results yet — season starts 6 June 2026.
           </div>
         ) : (
           <div className="flex flex-col gap-4">
             {pastInstances.map(inst => {
-              const eventDay      = eventDayById[inst.eventDayId];
-              const instFxs       = fixtures.filter(f => f.eventInstanceId === inst.id);
-              const instPools     = pools.filter(p => p.eventInstanceId === inst.id);
-              const squadFxs      = instFxs
+              const eventDay   = eventDayById[inst.eventDayId];
+              const instFxs    = fixtures.filter(f => f.eventInstanceId === inst.id);
+              const instPools  = pools.filter(p => p.eventInstanceId === inst.id);
+              const squadFxs   = instFxs
                 .filter(f => f.squadAId === squad.id || f.squadBId === squad.id)
                 .sort((a, b) => a.sequence - b.sequence);
-              const pool          = instPools.find(p => p.squadIds.includes(squad.id));
-              const poolFxs       = instFxs.filter(f => f.round === 'pool' && f.poolId === pool?.id);
+              const pool         = instPools.find(p => p.squadIds.includes(squad.id));
+              const poolFxs      = instFxs.filter(f => f.round === 'pool' && f.poolId === pool?.id);
               const poolStandings = pool ? computePoolStandings(pool.squadIds, poolFxs) : [];
-              const poolRank      = poolStandings.findIndex(s => s.id === squad.id);
-              const pts           = getSquadEventPoints(squad.id, instFxs, instPools);
+              const poolRank     = poolStandings.findIndex(s => s.id === squad.id);
+              const pts          = getSquadEventPoints(squad.id, instFxs, instPools);
+              const borderClass  = SPORT_BORDER[inst.sport] ?? 'border-l-gray-400';
 
               return (
-                <div key={inst.id} className="overflow-hidden rounded-xl border border-slate-700 bg-charcoal">
-                  <div className="flex items-center justify-between border-b border-slate-700 px-5 py-3">
+                <div
+                  key={inst.id}
+                  className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm border-l-4 ${borderClass}`}
+                >
+                  <div className="flex items-center justify-between px-5 py-3">
                     <div>
-                      <p className="font-semibold text-white">{inst.sport}</p>
-                      <p className="text-xs text-slate-400">{eventDay ? formatDate(eventDay.date) : ''}</p>
+                      <p className="font-black text-navy">{inst.sport}</p>
+                      <p className="text-xs text-muted">{eventDay ? formatDate(eventDay.date) : ''}</p>
                     </div>
-                    <span className="text-lg font-bold text-accent">{pts} pts</span>
+                    <span className="text-xl font-black text-accent">{pts} pts</span>
                   </div>
 
                   {pool && poolRank >= 0 && (
-                    <div className="border-b border-slate-800 px-5 py-2 text-xs text-slate-400">
+                    <div className="border-t border-gray-100 px-5 py-2 text-xs text-muted">
                       Pool {pool.name} finish:{' '}
-                      <span className="font-semibold text-slate-200">
+                      <span className="font-bold text-navy">
                         {['1st', '2nd', '3rd', '4th'][poolRank] ?? `${poolRank + 1}th`}
                       </span>
                     </div>
@@ -244,25 +249,32 @@ export default async function SquadPage({ params }: { params: { squadId: string 
                     const lost = hasResult && myScore! < oppScore!;
 
                     return (
-                      <div key={fx.id} className="flex items-center gap-3 border-t border-slate-800 px-5 py-3">
-                        <span className="w-20 shrink-0 text-xs text-slate-500">
+                      <div
+                        key={fx.id}
+                        className="flex items-center gap-3 border-t border-gray-100 px-5 py-3"
+                      >
+                        <span className="w-20 shrink-0 text-xs font-semibold text-muted">
                           {ROUND_LABEL[fx.round] ?? fx.round}
                         </span>
                         <span
-                          className={`flex-1 text-sm font-medium ${
+                          className={`flex-1 text-sm font-bold ${
                             hasResult
-                              ? won  ? 'text-green-400'
-                              : lost ? 'text-red-400'
-                              : 'text-slate-300'
-                              : 'text-slate-400'
+                              ? won  ? 'text-success'
+                              : lost ? 'text-red'
+                              : 'text-navy'
+                              : 'text-muted'
                           }`}
                         >
                           {squad.name}
                         </span>
-                        <span className="w-14 shrink-0 text-center text-sm font-bold tabular-nums text-slate-300">
+                        <span
+                          className={`w-14 shrink-0 text-center tabular-nums ${
+                            hasResult ? 'text-base font-black text-accent' : 'text-sm font-semibold text-muted'
+                          }`}
+                        >
                           {hasResult ? `${myScore} – ${oppScore}` : 'vs'}
                         </span>
-                        <span className="flex-1 text-right text-sm text-slate-400">
+                        <span className="flex-1 text-right text-sm font-semibold text-navy">
                           {opponent?.name ?? 'TBD'}
                         </span>
                       </div>
@@ -277,37 +289,38 @@ export default async function SquadPage({ params }: { params: { squadId: string 
 
       {/* Upcoming */}
       <section>
-        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-slate-400">Upcoming Fixtures</h2>
+        <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Upcoming Fixtures</h2>
         {upcomingInstances.length === 0 ? (
-          <div className="rounded-xl border border-slate-700 bg-charcoal p-5 text-center text-sm text-slate-400">
+          <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
             No upcoming fixtures.
           </div>
         ) : (
           <div className="flex flex-col gap-3">
             {upcomingInstances.map(inst => {
-              const eventDay    = eventDayById[inst.eventDayId];
+              const eventDay     = eventDayById[inst.eventDayId];
               const scheduledFxs = fixtures.filter(f =>
                 f.eventInstanceId === inst.id &&
                 (f.squadAId === squad.id || f.squadBId === squad.id),
               );
-
               return (
                 <Link
                   key={inst.id}
                   href={`/schedule/${inst.id}`}
-                  className="block rounded-xl border border-slate-700 bg-charcoal px-5 py-4 transition-colors hover:border-slate-500 hover:bg-slate-800/60"
+                  className="block rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition-shadow hover:shadow-md"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-semibold text-white">{inst.sport}</p>
-                      <p className="text-xs text-slate-400">
-                        {eventDay ? `${formatDate(eventDay.date)} · ${eventDay.venues.join(', ')}` : ''}
+                      <p className="font-black text-navy">{inst.sport}</p>
+                      <p className="text-xs text-muted">
+                        {eventDay
+                          ? `${formatDate(eventDay.date)} · ${eventDay.venues.join(', ')}`
+                          : ''}
                       </p>
                     </div>
-                    <span className="text-xs text-slate-600">›</span>
+                    <span className="text-xs text-muted">›</span>
                   </div>
                   {scheduledFxs.length > 0 && (
-                    <p className="mt-1.5 text-xs text-slate-500">
+                    <p className="mt-1.5 text-xs text-muted">
                       {scheduledFxs.length} fixture{scheduledFxs.length !== 1 ? 's' : ''} scheduled
                     </p>
                   )}

@@ -8,16 +8,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        night: '#0F1724',
+        // Light theme tokens (player-facing)
+        surface:  '#F4F5F7',
+        navy:     '#1B2A4A',
+        muted:    '#6B7280',
+        accent:   '#B8972E',
+        success:  '#16A34A',
+        red:      '#E8192C',
+        // Sport pill colours (light-bg friendly)
+        padel:    '#2563EB',
+        rugby:    '#DC2626',
+        soccer:   '#16A34A',
+        cricket:  '#D97706',
+        golf:     '#475569',
+        // Dark theme tokens (admin only)
+        night:    '#0F1724',
         charcoal: '#1B2A4A',
         darkslate: '#4d5f7c',
-        accent: '#B8972E',
-        red: '#E8192C',
-        padel: '#1b9aa7',
-        rugby: '#7b3f00',
-        soccer: '#175e27',
-        cricket: '#a47c00',
-        golf: '#0f4c3d',
       },
     },
   },

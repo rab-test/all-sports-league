@@ -35,7 +35,6 @@ function getSquadEventPoints(
     if (finalFx.squadAId === squadId) return finalFx.scoreA > finalFx.scoreB ? 8 : 6;
     if (finalFx.squadBId === squadId) return finalFx.scoreB > finalFx.scoreA ? 8 : 6;
   }
-
   if (thirdFx?.scoreA !== undefined && thirdFx?.scoreB !== undefined) {
     if (thirdFx.squadAId === squadId) return thirdFx.scoreA > thirdFx.scoreB ? 4 : 3;
     if (thirdFx.squadBId === squadId) return thirdFx.scoreB > thirdFx.scoreA ? 4 : 3;
@@ -45,8 +44,7 @@ function getSquadEventPoints(
   if (!pool) return 0;
   const pFxs = poolFxs.filter(f => f.poolId === pool.id);
   if (!pFxs.every(f => f.scoreA !== undefined && f.scoreB !== undefined)) return 0;
-  const standings = computePoolStandings(pool.squadIds, pFxs);
-  return standings.findIndex(s => s.id === squadId) === 2 ? 1 : 0;
+  return computePoolStandings(pool.squadIds, pFxs).findIndex(s => s.id === squadId) === 2 ? 1 : 0;
 }
 
 export default async function SquadsPage() {
@@ -61,24 +59,23 @@ export default async function SquadsPage() {
 
   const squadPoints: Record<string, number> = {};
   for (const squad of squads) {
-    const divisionInstances = eventInstances.filter(
+    const divInstances = eventInstances.filter(
       i => i.divisionId === squad.divisionId && i.sport !== 'Golf',
     );
-    let total = 0;
-    for (const instance of divisionInstances) {
-      total += getSquadEventPoints(
+    squadPoints[squad.id] = divInstances.reduce(
+      (sum, inst) => sum + getSquadEventPoints(
         squad.id,
-        fixtures.filter(f => f.eventInstanceId === instance.id),
-        pools.filter(p => p.eventInstanceId === instance.id),
-      );
-    }
-    squadPoints[squad.id] = total;
+        fixtures.filter(f => f.eventInstanceId === inst.id),
+        pools.filter(p => p.eventInstanceId === inst.id),
+      ),
+      0,
+    );
   }
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-1 text-3xl font-bold text-white">Squads</h1>
-      <p className="mb-8 text-sm text-slate-400">2026 Season — 16 squads across 2 divisions</p>
+      <h1 className="mb-1 text-3xl font-black text-navy">Squads</h1>
+      <p className="mb-8 text-sm text-muted">2026 Season — 16 squads across 2 divisions</p>
 
       <div className="flex flex-col gap-10">
         {divisions.map(division => {
@@ -94,12 +91,12 @@ export default async function SquadsPage() {
                   className={`rounded-full border px-3 py-0.5 text-xs font-bold ${
                     isPremier
                       ? 'border-accent/40 bg-accent/10 text-accent'
-                      : 'border-slate-600 bg-slate-800 text-slate-300'
+                      : 'border-gray-300 bg-gray-100 text-muted'
                   }`}
                 >
                   {division.name}
                 </span>
-                <span className="text-xs text-slate-500">{divisionSquads.length} squads</span>
+                <span className="text-xs text-muted">{divisionSquads.length} squads</span>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -110,18 +107,18 @@ export default async function SquadsPage() {
                     <Link
                       key={squad.id}
                       href={`/squads/${squad.id}`}
-                      className="flex items-center justify-between rounded-xl border border-slate-700 bg-charcoal px-5 py-4 transition-colors hover:border-slate-500 hover:bg-slate-800/60"
+                      className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition-shadow hover:shadow-md"
                     >
                       <div className="flex flex-col gap-0.5">
-                        <span className="font-bold text-white">{squad.name}</span>
-                        <span className="text-xs text-slate-500">{playerCount} players</span>
+                        <span className="font-black text-navy">{squad.name}</span>
+                        <span className="text-xs text-muted">{playerCount} players</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col items-end">
-                          <span className="text-lg font-bold tabular-nums text-accent">{points}</span>
-                          <span className="text-xs text-slate-500">pts</span>
+                          <span className="text-xl font-black tabular-nums text-accent">{points}</span>
+                          <span className="text-xs text-muted">pts</span>
                         </div>
-                        <span className="text-xs text-slate-600">›</span>
+                        <span className="text-xs text-muted">›</span>
                       </div>
                     </Link>
                   );

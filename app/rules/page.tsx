@@ -1,13 +1,15 @@
 type SportSection = {
   title: string;
-  colorClass: string;
+  borderClass: string;
+  headerTextClass: string;
   rules: string[];
 };
 
 const SPORTS: SportSection[] = [
   {
     title: 'Padel',
-    colorClass: 'text-padel border-padel/40',
+    borderClass: 'border-l-padel',
+    headerTextClass: 'text-padel',
     rules: [
       '4v4 teams.',
       'Each fixture: 4 singles matches + 1 doubles match.',
@@ -17,7 +19,8 @@ const SPORTS: SportSection[] = [
   },
   {
     title: 'Fives Soccer',
-    colorClass: 'text-soccer border-soccer/40',
+    borderClass: 'border-l-soccer',
+    headerTextClass: 'text-soccer',
     rules: [
       '6-a-side.',
       '20 minute matches.',
@@ -27,7 +30,8 @@ const SPORTS: SportSection[] = [
   },
   {
     title: 'Touch Rugby',
-    colorClass: 'text-rugby border-rugby/40',
+    borderClass: 'border-l-rugby',
+    headerTextClass: 'text-rugby',
     rules: [
       '6-a-side.',
       '20 minute matches.',
@@ -38,7 +42,8 @@ const SPORTS: SportSection[] = [
   },
   {
     title: '6-a-side Cricket',
-    colorClass: 'text-cricket border-cricket/40',
+    borderClass: 'border-l-cricket',
+    headerTextClass: 'text-cricket',
     rules: [
       '6-a-side.',
       '6 overs per innings.',
@@ -48,7 +53,8 @@ const SPORTS: SportSection[] = [
   },
   {
     title: 'Golf',
-    colorClass: 'text-golf border-golf/40',
+    borderClass: 'border-l-golf',
+    headerTextClass: 'text-golf',
     rules: [
       'Individual stroke play.',
       'Each squad submits 6 scores.',
@@ -61,17 +67,17 @@ const SPORTS: SportSection[] = [
 export default function RulesPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-1 text-3xl font-bold text-white">Rules</h1>
-      <p className="mb-8 text-sm text-slate-400">2026 Season — Somerset West League</p>
+      <h1 className="mb-1 text-3xl font-black text-navy">Rules</h1>
+      <p className="mb-8 text-sm text-muted">2026 Season — Somerset West League</p>
 
       <div className="flex flex-col gap-5">
 
         {/* General */}
-        <section className="overflow-hidden rounded-xl border border-slate-700 bg-charcoal">
-          <div className="border-b border-slate-700 px-5 py-4">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-accent">General</h2>
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="text-sm font-black uppercase tracking-widest text-navy">General</h2>
           </div>
-          <ul className="divide-y divide-slate-800 px-5">
+          <ul className="divide-y divide-gray-100 px-5">
             {[
               '16 squads split into Premier and Challenger divisions.',
               '8 squads per division, split into 2 pools of 4.',
@@ -82,22 +88,25 @@ export default function RulesPage() {
               'Points per event: 1st = 8, 2nd = 6, 3rd = 4, 4th = 3, Pool 3rd = 1, Pool 4th = 0.',
               'Overall league winner determined by cumulative points across all events.',
             ].map((rule, i) => (
-              <li key={i} className="py-3 text-sm text-slate-300">{rule}</li>
+              <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
             ))}
           </ul>
         </section>
 
         {/* Sports */}
         {SPORTS.map(sport => (
-          <section key={sport.title} className="overflow-hidden rounded-xl border border-slate-700 bg-charcoal">
-            <div className={`border-b border-slate-700 px-5 py-4 border-l-2 ${sport.colorClass}`}>
-              <h2 className={`text-sm font-bold uppercase tracking-widest ${sport.colorClass.split(' ')[0]}`}>
+          <section
+            key={sport.title}
+            className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm border-l-4 ${sport.borderClass}`}
+          >
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className={`text-sm font-black uppercase tracking-widest ${sport.headerTextClass}`}>
                 {sport.title}
               </h2>
             </div>
-            <ul className="divide-y divide-slate-800 px-5">
+            <ul className="divide-y divide-gray-100 px-5">
               {sport.rules.map((rule, i) => (
-                <li key={i} className="py-3 text-sm text-slate-300">{rule}</li>
+                <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
               ))}
             </ul>
           </section>
@@ -105,7 +114,7 @@ export default function RulesPage() {
 
       </div>
 
-      <p className="mt-8 text-center text-xs text-slate-500">
+      <p className="mt-8 text-center text-xs text-muted">
         Rules subject to change. Final decisions rest with the league organisers.
       </p>
     </main>
