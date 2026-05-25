@@ -12,6 +12,7 @@ export function Header() {
           <Link href="/" className="text-white/80 hover:text-accent transition-colors">Home</Link>
           <Link href="/schedule" className="text-white/80 hover:text-accent transition-colors">Schedule</Link>
           <Link href="/standings" className="text-white/80 hover:text-accent transition-colors">Standings</Link>
+          <Link href="/rules" className="text-white/80 hover:text-accent transition-colors">Rules</Link>
           <Link href="/squads" className="text-white/80 hover:text-accent transition-colors">Squads</Link>
         </nav>
       </div>
