@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+// ── Constants ────────────────────────────────────────────────────────────────
+
 const CORRECT_PIN = '2374';
 
 const SPORT_BADGE: Record<string, string> = {
@@ -13,15 +15,10 @@ const SPORT_BADGE: Record<string, string> = {
   'Finals Weekend':   'bg-accent text-night',
 };
 
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  });
-}
+// ── Types ────────────────────────────────────────────────────────────────────
 
-type GolfScore    = { eventInstanceId: string; squadId: string; totalScore: number };
+type GolfScore = { eventInstanceId: string; squadId: string; totalScore: number };
+
 type StoredFixture = {
   id: string; eventInstanceId: string; poolId: string | null;
   squadAId: string; squadBId: string; round: string; sequence: number;
@@ -31,15 +28,18 @@ type StoredFixture = {
   pair3A?: number | null; pair3B?: number | null;
   sfOverride?: boolean;
 };
+
 type Pool     = { id: string; eventInstanceId: string; name: string; squadIds: string[] };
 type Squad    = { id: string; divisionId: string; name: string };
 type EventDay = { id: string; date: string; venues: string[] };
-type Division = { id: string; name: string; squadIds: string[] };
+type Division = { id: string; name: string };
+
 type JoinedInstance = {
   id: string; divisionId: string; sport: string;
   formatPresetId: string; locked: boolean;
   eventDay: EventDay; division: Division;
 };
+
 type AdminData = {
   instances: JoinedInstance[];
   pools: Pool[];
@@ -49,40 +49,94 @@ type AdminData = {
 };
 
 type PadelInput = { p1a: string; p1b: string; p2a: string; p2b: string; p3a: string; p3b: string };
-type SfOverride = { enabled: boolean; squadAId: string; squadBId: string };
+type SfOverrideState = { enabled: boolean; squadAId: string; squadBId: string };
+type EventStatus = 'draw-pending' | 'in-progress' | 'complete' | 'locked';
+
+// ── Status helpers ───────────────────────────────────────────────────────────
+
+function getEventStatus(
+  instance: JoinedInstance,
+  pools: Pool[],
+  fixtures: StoredFixture[],
+  golfScores: GolfScore[],
+  divisionSquads: Squad[],
+): EventStatus {
+  if (instance.locked) return 'locked';
+
+  if (instance.sport === 'Golf') {
+    const scored = golfScores.filter(g => g.eventInstanceId === instance.id);
+    if (scored.length === 0) return 'draw-pending';
+    return scored.length >= divisionSquads.length ? 'complete' : 'in-progress';
+  }
+
+  const hasPools = pools.some(p => p.eventInstanceId === instance.id);
+  if (!hasPools) return 'draw-pending';
+
+  const fxs    = fixtures.filter(f => f.eventInstanceId === instance.id);
+  const poolFx = fxs.filter(f => f.round === 'pool');
+  const finalFx = fxs.find(f => f.round === 'final');
+
+  const allPool  = poolFx.length > 0 && poolFx.every(f => f.scoreA != null && f.scoreB != null);
+  const finalDone = finalFx != null && finalFx.scoreA != null && finalFx.scoreB != null;
+
+  return allPool && finalDone ? 'complete' : 'in-progress';
+}
+
+const STATUS_CONFIG: Record<EventStatus, { label: string; cls: string }> = {
+  'draw-pending': { label: 'Draw Pending', cls: 'bg-gray-100 text-gray-500' },
+  'in-progress':  { label: 'In Progress',  cls: 'bg-amber-100 text-amber-700' },
+  'complete':     { label: 'Complete',     cls: 'bg-green-100 text-green-700' },
+  'locked':       { label: 'Locked',       cls: 'bg-red-100 text-red-600' },
+};
+
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const [pin, setPin]           = useState('');
+  const [pin,      setPin]      = useState('');
   const [unlocked, setUnlocked] = useState(false);
   const [pinError, setPinError] = useState(false);
 
-  const [data, setData]         = useState<AdminData | null>(null);
-  const [loading, setLoading]   = useState(false);
+  const [data,    setData]    = useState<AdminData | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [scoreInputs,  setScoreInputs]  = useState<Record<string, { a: string; b: string }>>({});
-  const [padelInputs,  setPadelInputs]  = useState<Record<string, PadelInput>>({});
-  const [sfOverrides,  setSfOverrides]  = useState<Record<string, SfOverride>>({});
-  const [golfInputs,   setGolfInputs]   = useState<Record<string, string>>({});
+  const [scoreInputs, setScoreInputs] = useState<Record<string, { a: string; b: string }>>({});
+  const [padelInputs, setPadelInputs] = useState<Record<string, PadelInput>>({});
+  const [sfOverrides, setSfOverrides] = useState<Record<string, SfOverrideState>>({});
+  const [golfInputs,  setGolfInputs]  = useState<Record<string, string>>({});
 
-  const [savingFixture,  setSavingFixture]  = useState<string | null>(null);
-  const [savingGolf,     setSavingGolf]     = useState<string | null>(null);
-  const [savingSfOver,   setSavingSfOver]   = useState<string | null>(null);
-  const [generatingDraw, setGeneratingDraw] = useState<string | null>(null);
-  const [lockingEvent,   setLockingEvent]   = useState<string | null>(null);
+  // UI expand/collapse state
+  const [expandedCards,   setExpandedCards]   = useState<Set<string>>(new Set());
+  const [expandedPadelFx, setExpandedPadelFx] = useState<Set<string>>(new Set());
+  const [expandedSfOver,  setExpandedSfOver]  = useState<Set<string>>(new Set());
+
+  // Saving state
+  const [savingFx,   setSavingFx]   = useState<string | null>(null);
+  const [savingGolf, setSavingGolf] = useState<string | null>(null);
+  const [savingSfo,  setSavingSfo]  = useState<string | null>(null);
+  const [genDraw,    setGenDraw]    = useState<string | null>(null);
+  const [lockingEv,  setLockingEv]  = useState<string | null>(null);
+
+  // ── Input initialisation ──────────────────────────────────────────────────
 
   function initInputs(d: AdminData) {
+    const instMap = Object.fromEntries(d.instances.map(i => [i.id, i]));
     const si: Record<string, { a: string; b: string }> = {};
     const pi: Record<string, PadelInput> = {};
-    const sfo: Record<string, SfOverride> = {};
-
-    const instanceMap = Object.fromEntries(d.instances.map(i => [i.id, i]));
+    const sfo: Record<string, SfOverrideState> = {};
 
     for (const fx of d.fixtures) {
       si[fx.id] = {
         a: fx.scoreA != null ? String(fx.scoreA) : '',
         b: fx.scoreB != null ? String(fx.scoreB) : '',
       };
-      if (instanceMap[fx.eventInstanceId]?.sport === 'Padel') {
+      if (instMap[fx.eventInstanceId]?.sport === 'Padel') {
         pi[fx.id] = {
           p1a: fx.pair1A != null ? String(fx.pair1A) : '',
           p1b: fx.pair1B != null ? String(fx.pair1B) : '',
@@ -100,6 +154,7 @@ export default function AdminPage() {
         };
       }
     }
+
     setScoreInputs(si);
     setPadelInputs(pi);
     setSfOverrides(sfo);
@@ -111,6 +166,8 @@ export default function AdminPage() {
     setGolfInputs(gi);
   }
 
+  // ── Data fetching ─────────────────────────────────────────────────────────
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -121,182 +178,423 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (unlocked) fetchData();
-  }, [unlocked, fetchData]);
+  useEffect(() => { if (unlocked) fetchData(); }, [unlocked, fetchData]);
+
+  // ── Actions ───────────────────────────────────────────────────────────────
 
   function handlePin() {
-    if (pin === CORRECT_PIN) {
-      setUnlocked(true);
-      setPinError(false);
-    } else {
-      setPinError(true);
-      setPin('');
-    }
+    if (pin === CORRECT_PIN) { setUnlocked(true); setPinError(false); }
+    else { setPinError(true); setPin(''); }
   }
 
-  async function generateDraw(eventInstanceId: string, hasPools: boolean) {
-    if (hasPools && !window.confirm('Regenerate draw? This will overwrite existing pools and fixtures.')) return;
-    setGeneratingDraw(eventInstanceId);
+  async function generateDraw(eid: string, hasPools: boolean) {
+    if (hasPools && !window.confirm('Regenerate draw? Existing pools and fixtures will be overwritten.')) return;
+    setGenDraw(eid);
     try {
       await fetch('/api/admin/draw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventInstanceId }),
+        body: JSON.stringify({ eventInstanceId: eid }),
       });
       await fetchData();
     } finally {
-      setGeneratingDraw(null);
+      setGenDraw(null);
     }
   }
 
-  async function saveScore(fixtureId: string) {
-    const inputs = scoreInputs[fixtureId];
-    if (!inputs) return;
-    setSavingFixture(fixtureId);
+  async function saveScore(fxId: string) {
+    const inp = scoreInputs[fxId];
+    if (!inp) return;
+    setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fixtureId, scoreA: Number(inputs.a), scoreB: Number(inputs.b) }),
+        body: JSON.stringify({ fixtureId: fxId, scoreA: Number(inp.a), scoreB: Number(inp.b) }),
       });
-      setData(prev => prev && ({
-        ...prev,
-        fixtures: prev.fixtures.map(f =>
-          f.id === fixtureId ? { ...f, scoreA: Number(inputs.a), scoreB: Number(inputs.b) } : f
-        ),
-      }));
+      await fetchData();
     } finally {
-      setSavingFixture(null);
+      setSavingFx(null);
     }
   }
 
-  async function savePadelScore(fixtureId: string) {
-    const inp = padelInputs[fixtureId];
+  async function savePadelScore(fxId: string) {
+    const inp = padelInputs[fxId];
     if (!inp) return;
-    setSavingFixture(fixtureId);
+    setSavingFx(fxId);
     try {
-      const pairs: [number, number][] = [
-        [Number(inp.p1a), Number(inp.p1b)],
-        [Number(inp.p2a), Number(inp.p2b)],
-        [Number(inp.p3a), Number(inp.p3b)],
-      ];
-      const scoreA = pairs.filter(([a, b]) => a > b).length;
-      const scoreB = pairs.filter(([a, b]) => b > a).length;
       await fetch('/api/admin/result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fixtureId,
-          pair1A: pairs[0][0], pair1B: pairs[0][1],
-          pair2A: pairs[1][0], pair2B: pairs[1][1],
-          pair3A: pairs[2][0], pair3B: pairs[2][1],
+          fixtureId: fxId,
+          pair1A: Number(inp.p1a), pair1B: Number(inp.p1b),
+          pair2A: Number(inp.p2a), pair2B: Number(inp.p2b),
+          pair3A: Number(inp.p3a), pair3B: Number(inp.p3b),
         }),
       });
-      setData(prev => prev && ({
-        ...prev,
-        fixtures: prev.fixtures.map(f =>
-          f.id === fixtureId ? {
-            ...f, scoreA, scoreB,
-            pair1A: pairs[0][0], pair1B: pairs[0][1],
-            pair2A: pairs[1][0], pair2B: pairs[1][1],
-            pair3A: pairs[2][0], pair3B: pairs[2][1],
-          } : f
-        ),
-      }));
+      await fetchData();
     } finally {
-      setSavingFixture(null);
+      setSavingFx(null);
     }
   }
 
-  async function saveSfOverride(fixtureId: string) {
-    const state = sfOverrides[fixtureId];
+  async function saveSfOverride(fxId: string) {
+    const state = sfOverrides[fxId];
     if (!state) return;
-    setSavingSfOver(fixtureId);
+    setSavingSfo(fxId);
     try {
       await fetch('/api/admin/sf-override', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fixtureId,
+          fixtureId: fxId,
           sfOverride: state.enabled,
-          squadAId: state.squadAId,
-          squadBId: state.squadBId,
+          squadAId:   state.squadAId,
+          squadBId:   state.squadBId,
         }),
       });
       await fetchData();
     } finally {
-      setSavingSfOver(null);
+      setSavingSfo(null);
     }
   }
 
-  async function saveGolfScore(eventInstanceId: string, squadId: string) {
-    const key = `${eventInstanceId}-${squadId}`;
+  async function saveGolfScore(eid: string, squadId: string) {
+    const key = `${eid}-${squadId}`;
     const val = golfInputs[key];
-    if (val === undefined || val === '') return;
+    if (!val) return;
     setSavingGolf(key);
     try {
       await fetch('/api/admin/golf-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventInstanceId, squadId, totalScore: Number(val) }),
+        body: JSON.stringify({ eventInstanceId: eid, squadId, totalScore: Number(val) }),
       });
-      setData(prev => {
-        if (!prev) return prev;
-        const idx = prev.golfScores.findIndex(
-          g => g.eventInstanceId === eventInstanceId && g.squadId === squadId
-        );
-        const updated = [...prev.golfScores];
-        if (idx === -1) updated.push({ eventInstanceId, squadId, totalScore: Number(val) });
-        else updated[idx] = { ...updated[idx], totalScore: Number(val) };
-        return { ...prev, golfScores: updated };
-      });
+      await fetchData();
     } finally {
       setSavingGolf(null);
     }
   }
 
-  async function toggleLock(eventInstanceId: string, locked: boolean) {
-    setLockingEvent(eventInstanceId);
+  async function toggleLock(eid: string, locked: boolean) {
+    setLockingEv(eid);
     try {
       await fetch('/api/admin/lock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventInstanceId, locked }),
+        body: JSON.stringify({ eventInstanceId: eid, locked }),
       });
-      setData(prev => prev && ({
-        ...prev,
-        instances: prev.instances.map(i =>
-          i.id === eventInstanceId ? { ...i, locked } : i
-        ),
-      }));
+      await fetchData();
     } finally {
-      setLockingEvent(null);
+      setLockingEv(null);
     }
   }
 
-  // ── PIN screen ──────────────────────────────────────────────────────────────
+  function toggleCard(id: string) {
+    setExpandedCards(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+  function togglePadelFx(id: string) {
+    setExpandedPadelFx(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+  function toggleSfOver(id: string) {
+    setExpandedSfOver(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  }
+
+  // ── Fixture row renderers (closures over state) ───────────────────────────
+
+  function renderPoolRow(fx: StoredFixture, isPadel: boolean, isLocked: boolean, squadMap: Record<string, Squad>) {
+    const hasResult = fx.scoreA != null && fx.scoreB != null;
+    const aWins = hasResult && (fx.scoreA ?? 0) > (fx.scoreB ?? 0);
+    const bWins = hasResult && (fx.scoreB ?? 0) > (fx.scoreA ?? 0);
+    const clsA = aWins ? 'font-bold text-accent' : bWins ? 'text-gray-400' : 'font-medium text-navy';
+    const clsB = bWins ? 'font-bold text-accent' : aWins ? 'text-gray-400' : 'font-medium text-navy';
+
+    if (isPadel) {
+      const pi       = padelInputs[fx.id] ?? { p1a:'', p1b:'', p2a:'', p2b:'', p3a:'', p3b:'' };
+      const expanded = expandedPadelFx.has(fx.id);
+      return (
+        <div key={fx.id} className="rounded-lg border border-gray-100 overflow-hidden">
+          <div className="flex items-center gap-2 bg-white px-3 py-2.5">
+            <span className={`flex-1 text-sm ${clsA}`}>{squadMap[fx.squadAId]?.name ?? '?'}</span>
+            <span className={`shrink-0 tabular-nums text-sm ${hasResult ? 'font-bold text-accent' : 'text-gray-300'}`}>
+              {hasResult ? `${fx.scoreA} – ${fx.scoreB}` : 'vs'}
+            </span>
+            <span className={`flex-1 text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name ?? '?'}</span>
+            <button
+              onClick={() => togglePadelFx(fx.id)}
+              className="ml-2 shrink-0 rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 hover:border-navy hover:text-navy transition-colors"
+            >
+              {expanded ? '▲ Pairs' : '▼ Pairs'}
+            </button>
+          </div>
+          {expanded && (
+            <div className="border-t border-gray-100 bg-gray-50 px-3 py-3">
+              {([1, 2, 3] as const).map(n => {
+                const ak = `p${n}a` as keyof PadelInput;
+                const bk = `p${n}b` as keyof PadelInput;
+                return (
+                  <div key={n} className="mb-2 flex items-center gap-2">
+                    <span className="w-12 text-xs text-gray-400">Pair {n}</span>
+                    <input
+                      type="number" min="0" placeholder="0" disabled={isLocked}
+                      value={pi[ak]}
+                      onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [ak]: e.target.value } }))}
+                      className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                    />
+                    <span className="text-xs text-gray-300">–</span>
+                    <input
+                      type="number" min="0" placeholder="0" disabled={isLocked}
+                      value={pi[bk]}
+                      onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [bk]: e.target.value } }))}
+                      className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                    />
+                  </div>
+                );
+              })}
+              <div className="mt-3 flex justify-end">
+                <button
+                  disabled={isLocked || savingFx === fx.id}
+                  onClick={() => savePadelScore(fx.id)}
+                  className="rounded-lg bg-accent px-4 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
+                >
+                  {savingFx === fx.id ? '…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const inp = scoreInputs[fx.id] ?? { a: '', b: '' };
+    return (
+      <div key={fx.id} className="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+        <span className={`flex-1 min-w-0 truncate text-sm ${clsA}`}>{squadMap[fx.squadAId]?.name ?? '?'}</span>
+        <input
+          type="number" min="0" placeholder="0" disabled={isLocked}
+          value={inp.a}
+          onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], a: e.target.value } }))}
+          className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+        />
+        <span className="shrink-0 text-xs text-gray-300">–</span>
+        <input
+          type="number" min="0" placeholder="0" disabled={isLocked}
+          value={inp.b}
+          onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], b: e.target.value } }))}
+          className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+        />
+        <span className={`flex-1 min-w-0 truncate text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name ?? '?'}</span>
+        <button
+          disabled={isLocked || savingFx === fx.id}
+          onClick={() => saveScore(fx.id)}
+          className="ml-1 shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
+        >
+          {savingFx === fx.id ? '…' : 'Save'}
+        </button>
+      </div>
+    );
+  }
+
+  function renderKnockoutRow(
+    fx: StoredFixture,
+    isPadel: boolean,
+    isLocked: boolean,
+    divisionSquads: Squad[],
+    squadMap: Record<string, Squad>,
+  ) {
+    const label        = fx.round === 'semi' ? `SF${fx.sequence}` : fx.round === 'final' ? 'Final' : '3rd/4th';
+    const hasBoth      = !!(fx.squadAId && fx.squadBId);
+    const isSemi       = fx.round === 'semi';
+    const hasResult    = fx.scoreA != null && fx.scoreB != null;
+    const aWins        = hasResult && (fx.scoreA ?? 0) > (fx.scoreB ?? 0);
+    const bWins        = hasResult && (fx.scoreB ?? 0) > (fx.scoreA ?? 0);
+    const clsA         = aWins ? 'font-bold text-accent' : bWins ? 'text-gray-400' : hasBoth ? 'font-medium text-navy' : 'text-gray-300 italic';
+    const clsB         = bWins ? 'font-bold text-accent' : aWins ? 'text-gray-400' : hasBoth ? 'font-medium text-navy' : 'text-gray-300 italic';
+    const sfoOpen      = expandedSfOver.has(fx.id);
+    const sfo          = sfOverrides[fx.id];
+
+    const scoreRow = (extraRight?: React.ReactNode) => {
+      if (isPadel) {
+        const pi       = padelInputs[fx.id] ?? { p1a:'', p1b:'', p2a:'', p2b:'', p3a:'', p3b:'' };
+        const expanded = expandedPadelFx.has(fx.id);
+        return (
+          <>
+            <div className="flex items-center gap-2 bg-white px-3 py-2.5">
+              <span className="w-10 shrink-0 text-xs font-bold text-gray-400">{label}</span>
+              <span className={`flex-1 text-sm ${clsA}`}>{squadMap[fx.squadAId]?.name || 'TBD'}</span>
+              <span className={`shrink-0 tabular-nums text-sm ${hasResult ? 'font-bold text-accent' : 'text-gray-300'}`}>
+                {hasResult ? `${fx.scoreA} – ${fx.scoreB}` : 'vs'}
+              </span>
+              <span className={`flex-1 text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name || 'TBD'}</span>
+              {hasBoth && (
+                <button
+                  onClick={() => togglePadelFx(fx.id)}
+                  className="ml-1 shrink-0 rounded border border-gray-200 px-2 py-0.5 text-xs text-gray-400 hover:border-navy hover:text-navy transition-colors"
+                >
+                  {expanded ? '▲' : '▼'}
+                </button>
+              )}
+              {extraRight}
+            </div>
+            {expanded && hasBoth && (
+              <div className="border-t border-gray-100 bg-gray-50 px-3 py-3">
+                {([1, 2, 3] as const).map(n => {
+                  const ak = `p${n}a` as keyof PadelInput;
+                  const bk = `p${n}b` as keyof PadelInput;
+                  return (
+                    <div key={n} className="mb-2 flex items-center gap-2">
+                      <span className="w-12 text-xs text-gray-400">Pair {n}</span>
+                      <input
+                        type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+                        value={pi[ak]}
+                        onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [ak]: e.target.value } }))}
+                        className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                      />
+                      <span className="text-xs text-gray-300">–</span>
+                      <input
+                        type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+                        value={pi[bk]}
+                        onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [bk]: e.target.value } }))}
+                        className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                      />
+                    </div>
+                  );
+                })}
+                <div className="mt-3 flex justify-end">
+                  <button
+                    disabled={isLocked || !hasBoth || savingFx === fx.id}
+                    onClick={() => savePadelScore(fx.id)}
+                    className="rounded-lg bg-accent px-4 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
+                  >
+                    {savingFx === fx.id ? '…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      }
+
+      const inp = scoreInputs[fx.id] ?? { a: '', b: '' };
+      return (
+        <div className="flex items-center gap-2 bg-white px-3 py-2.5">
+          <span className="w-10 shrink-0 text-xs font-bold text-gray-400">{label}</span>
+          <span className={`flex-1 min-w-0 truncate text-sm ${clsA}`}>{squadMap[fx.squadAId]?.name || 'TBD'}</span>
+          <input
+            type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+            value={inp.a}
+            onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], a: e.target.value } }))}
+            className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+          />
+          <span className="shrink-0 text-xs text-gray-300">–</span>
+          <input
+            type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+            value={inp.b}
+            onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], b: e.target.value } }))}
+            className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+          />
+          <span className={`flex-1 min-w-0 truncate text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name || 'TBD'}</span>
+          <button
+            disabled={isLocked || !hasBoth || savingFx === fx.id}
+            onClick={() => saveScore(fx.id)}
+            className="ml-1 shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
+          >
+            {savingFx === fx.id ? '…' : 'Save'}
+          </button>
+          {extraRight}
+        </div>
+      );
+    };
+
+    return (
+      <div key={fx.id} className="rounded-lg border border-gray-100 overflow-hidden">
+        {scoreRow(
+          isSemi ? (
+            <button
+              onClick={() => toggleSfOver(fx.id)}
+              className="ml-1 shrink-0 text-xs text-gray-400 underline underline-offset-2 hover:text-navy transition-colors"
+            >
+              {sfoOpen ? 'Close' : 'Override'}
+            </button>
+          ) : undefined
+        )}
+
+        {/* SF Override panel */}
+        {isSemi && sfoOpen && sfo && (
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-600">
+              <input
+                type="checkbox"
+                disabled={isLocked}
+                checked={sfo.enabled}
+                onChange={e => setSfOverrides(p => ({ ...p, [fx.id]: { ...p[fx.id], enabled: e.target.checked } }))}
+                className="accent-accent disabled:cursor-not-allowed"
+              />
+              Override auto-selection
+            </label>
+            {sfo.enabled && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  disabled={isLocked}
+                  value={sfo.squadAId}
+                  onChange={e => setSfOverrides(p => ({ ...p, [fx.id]: { ...p[fx.id], squadAId: e.target.value } }))}
+                  className="rounded border border-gray-200 bg-white px-2 py-1.5 text-xs text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                >
+                  <option value="">Squad A…</option>
+                  {divisionSquads.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <span className="text-xs text-gray-400">vs</span>
+                <select
+                  disabled={isLocked}
+                  value={sfo.squadBId}
+                  onChange={e => setSfOverrides(p => ({ ...p, [fx.id]: { ...p[fx.id], squadBId: e.target.value } }))}
+                  className="rounded border border-gray-200 bg-white px-2 py-1.5 text-xs text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                >
+                  <option value="">Squad B…</option>
+                  {divisionSquads.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button
+                  disabled={isLocked || savingSfo === fx.id || !sfo.squadAId || !sfo.squadBId}
+                  onClick={() => saveSfOverride(fx.id)}
+                  className="rounded-lg bg-navy px-3 py-1.5 text-xs font-bold text-white hover:bg-navy/80 disabled:opacity-40 transition-colors"
+                >
+                  {savingSfo === fx.id ? '…' : 'Apply'}
+                </button>
+              </div>
+            )}
+            {!sfo.enabled && (
+              <button
+                disabled={isLocked || savingSfo === fx.id}
+                onClick={() => saveSfOverride(fx.id)}
+                className="rounded border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-500 hover:text-navy disabled:opacity-40 transition-colors"
+              >
+                {savingSfo === fx.id ? '…' : 'Reset to auto'}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── PIN screen ────────────────────────────────────────────────────────────
+
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-night flex items-center justify-center px-4">
-        <div className="bg-charcoal rounded-xl border border-slate-700 p-8 w-full max-w-xs">
-          <h1 className="text-white text-xl font-bold mb-6 text-center">Admin Access</h1>
+      <div className="flex min-h-screen items-center justify-center bg-night px-4">
+        <div className="w-full max-w-xs rounded-xl border border-slate-700 bg-charcoal p-8">
+          <h1 className="mb-6 text-center text-xl font-bold text-white">Admin Access</h1>
           <input
-            type="password"
-            inputMode="numeric"
-            maxLength={4}
-            placeholder="PIN"
-            autoComplete="off"
+            type="password" inputMode="numeric" maxLength={4} placeholder="PIN" autoComplete="off"
             value={pin}
             onChange={e => setPin(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handlePin()}
-            className="w-full rounded-lg border border-slate-600 bg-night px-4 py-3 text-white text-center text-2xl tracking-[0.5em] focus:border-accent focus:outline-none"
+            className="w-full rounded-lg border border-slate-600 bg-night px-4 py-3 text-center text-2xl tracking-[0.5em] text-white focus:border-accent focus:outline-none"
           />
-          {pinError && (
-            <p className="text-red-400 text-sm mt-2 text-center">Incorrect PIN</p>
-          )}
+          {pinError && <p className="mt-2 text-center text-sm text-red-400">Incorrect PIN</p>}
           <button
             onClick={handlePin}
             className="mt-4 w-full rounded-lg bg-accent px-4 py-3 font-bold text-night hover:bg-accent/90 transition-colors"
@@ -308,513 +606,238 @@ export default function AdminPage() {
     );
   }
 
-  // ── Loading ─────────────────────────────────────────────────────────────────
-  if (loading || !data) {
+  if (loading && !data) {
     return (
-      <div className="min-h-screen bg-night flex items-center justify-center">
-        <p className="text-slate-400">Loading…</p>
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <p className="text-gray-400">Loading…</p>
       </div>
     );
   }
 
+  if (!data) return null;
+
   const sorted   = [...data.instances].sort((a, b) => a.eventDay.date.localeCompare(b.eventDay.date));
   const squadMap = Object.fromEntries(data.squads.map(s => [s.id, s]));
 
-  // ── Admin panel ─────────────────────────────────────────────────────────────
+  // ── Main panel ────────────────────────────────────────────────────────────
+
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold text-white mb-8">Ultimate Sports League — Admin</h1>
+    <div className="min-h-screen bg-white">
 
-      <div className="flex flex-col gap-6">
-        {sorted.map(instance => {
-          const instancePools    = data.pools.filter(p => p.eventInstanceId === instance.id);
-          const instanceFixtures = data.fixtures.filter(
-            f => f.eventInstanceId === instance.id && f.round === 'pool'
-          );
-          const knockoutFixtures = data.fixtures
-            .filter(f => f.eventInstanceId === instance.id && f.round !== 'pool')
-            .sort((a, b) => {
-              const order: Record<string, number> = { semi: 0, final: 1, '3rd-4th': 2 };
-              return (order[a.round] ?? 3) - (order[b.round] ?? 3) || a.sequence - b.sequence;
-            });
-          const divisionSquads   = data.squads.filter(s => s.divisionId === instance.divisionId);
-          const isPadel          = instance.sport === 'Padel';
-          const isGolf           = instance.sport === 'Golf';
-          const isLocked         = instance.locked;
-          const badgeClass       = SPORT_BADGE[instance.sport] ?? 'bg-slate-700 text-white';
+      {/* Header */}
+      <div className="bg-navy">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
+          <h1 className="text-base font-bold text-white">Ultimate Sports League — Admin</h1>
+          <div className="flex items-center gap-4">
+            {loading && <span className="text-xs text-slate-400">Saving…</span>}
+            <button
+              onClick={() => setUnlocked(false)}
+              className="text-sm text-slate-400 transition-colors hover:text-white"
+            >
+              Log out
+            </button>
+          </div>
+        </div>
+      </div>
 
-          return (
-            <div key={instance.id} className="rounded-xl border border-slate-700 bg-charcoal overflow-hidden">
+      {/* Event cards */}
+      <div className="mx-auto max-w-4xl px-4 py-6">
+        <div className="flex flex-col gap-3">
 
-              {/* Card header */}
-              <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-700">
-                <div className="flex flex-wrap items-center gap-3 min-w-0">
-                  <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badgeClass}`}>
-                    {instance.sport}
-                  </span>
-                  <span className="text-slate-300 text-sm font-medium">
-                    {instance.division?.name} Division
-                  </span>
-                  <span className="text-slate-500 text-xs">
-                    {formatDate(instance.eventDay.date)}
-                  </span>
-                </div>
-                {isLocked && (
-                  <span className="shrink-0 rounded border border-slate-600 px-2 py-0.5 text-xs text-slate-400 whitespace-nowrap">
-                    🔒 Locked
-                  </span>
-                )}
-              </div>
+          {sorted.map(instance => {
+            const divisionSquads = data.squads.filter(s => s.divisionId === instance.divisionId);
+            const status         = getEventStatus(instance, data.pools, data.fixtures, data.golfScores, divisionSquads);
+            const statusCfg      = STATUS_CONFIG[status];
+            const isExpanded     = expandedCards.has(instance.id);
+            const isPadel        = instance.sport === 'Padel';
+            const isGolf         = instance.sport === 'Golf';
+            const isLocked       = instance.locked;
+            const badgeCls       = SPORT_BADGE[instance.sport] ?? 'bg-gray-400 text-white';
 
-              {/* Card body */}
-              <div className="px-5 py-4">
+            const instancePools = data.pools.filter(p => p.eventInstanceId === instance.id);
+            const allFx         = data.fixtures.filter(f => f.eventInstanceId === instance.id);
+            const poolFx        = allFx.filter(f => f.round === 'pool');
+            const knockoutFx    = allFx
+              .filter(f => f.round !== 'pool')
+              .sort((a, b) => {
+                const o: Record<string, number> = { semi: 0, final: 1, '3rd-4th': 2 };
+                return (o[a.round] ?? 9) - (o[b.round] ?? 9) || a.sequence - b.sequence;
+              });
 
-                {isGolf ? (
-                  /* ── Golf score entry ── */
-                  <table className="w-full text-sm mb-4">
-                    <thead>
-                      <tr className="text-xs text-slate-500 uppercase">
-                        <th className="py-2 text-left">Squad</th>
-                        <th className="py-2 text-center w-28">Total Score</th>
-                        <th className="py-2 w-16"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {divisionSquads.map(squad => {
-                        const key = `${instance.id}-${squad.id}`;
-                        return (
-                          <tr key={squad.id} className="border-t border-slate-800">
-                            <td className="py-2.5 text-white">{squad.name}</td>
-                            <td className="py-2.5 text-center">
-                              <input
-                                type="number"
-                                min="0"
-                                placeholder="—"
-                                disabled={isLocked}
-                                value={golfInputs[key] ?? ''}
-                                onChange={e => setGolfInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                                className="w-24 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                              />
-                            </td>
-                            <td className="py-2.5 text-right">
-                              <button
-                                disabled={isLocked || savingGolf === key}
-                                onClick={() => saveGolfScore(instance.id, squad.id)}
-                                className="rounded bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                              >
-                                {savingGolf === key ? '…' : 'Save'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            return (
+              <div key={instance.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
 
-                ) : (
-                  /* ── Preset A: draw + fixtures ── */
-                  <div>
-                    <div className="mb-4">
-                      <button
-                        disabled={isLocked || generatingDraw === instance.id}
-                        onClick={() => generateDraw(instance.id, instancePools.length > 0)}
-                        className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        {generatingDraw === instance.id
-                          ? 'Generating…'
-                          : instancePools.length > 0
-                          ? 'Regenerate Draw'
-                          : 'Generate Draw'}
-                      </button>
-                    </div>
+                {/* ── Card header ─────────────────────────────────────── */}
+                <button
+                  type="button"
+                  onClick={() => toggleCard(instance.id)}
+                  className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-gray-50"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badgeCls}`}>
+                      {instance.sport}
+                    </span>
+                    <span className="text-sm font-semibold text-navy">
+                      {instance.division?.name} Division
+                    </span>
+                    <span className="text-xs text-gray-400">{formatDate(instance.eventDay.date)}</span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusCfg.cls}`}>
+                      {statusCfg.label}
+                    </span>
+                    <svg
+                      className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
 
-                    {instancePools.length === 0 ? (
-                      <p className="text-slate-500 text-sm">No draw generated yet</p>
-                    ) : (
-                      <div className="flex flex-col gap-6">
-                        {instancePools.map(pool => {
-                          const pf = instanceFixtures
-                            .filter(f => f.poolId === pool.id)
-                            .sort((a, b) => a.sequence - b.sequence);
+                {/* ── Card body ────────────────────────────────────────── */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100">
 
-                          return (
-                            <div key={pool.id}>
-                              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                                Pool {pool.name}
-                              </p>
-
-                              {/* Squad chips */}
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                {pool.squadIds.map(sid => (
-                                  <span
-                                    key={sid}
-                                    className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300"
-                                  >
-                                    {squadMap[sid]?.name ?? sid}
-                                  </span>
-                                ))}
-                              </div>
-
-                              {/* Fixture rows */}
-                              {pf.length === 0 ? (
-                                <p className="text-slate-600 text-xs">No fixtures yet</p>
-                              ) : (
-                                <div className="flex flex-col gap-2">
-                                  {pf.map(fx => {
-                                    if (isPadel) {
-                                      const pi = padelInputs[fx.id] ?? { p1a: '', p1b: '', p2a: '', p2b: '', p3a: '', p3b: '' };
-                                      return (
-                                        <div key={fx.id} className="rounded-lg border border-slate-700 bg-night/60 px-3 py-3">
-                                          <div className="flex items-center justify-between mb-3">
-                                            <span className="text-sm text-slate-300 font-medium">{squadMap[fx.squadAId]?.name ?? fx.squadAId}</span>
-                                            <span className="text-xs text-slate-500">vs</span>
-                                            <span className="text-sm text-slate-300 font-medium">{squadMap[fx.squadBId]?.name ?? fx.squadBId}</span>
-                                          </div>
-                                          {([1, 2, 3] as const).map(pair => {
-                                            const aKey = `p${pair}a` as keyof PadelInput;
-                                            const bKey = `p${pair}b` as keyof PadelInput;
-                                            return (
-                                              <div key={pair} className="flex items-center gap-2 mb-1.5">
-                                                <span className="text-xs text-slate-500 w-12">Pair {pair}</span>
-                                                <input
-                                                  type="number" min="0" placeholder="0"
-                                                  disabled={isLocked}
-                                                  value={pi[aKey]}
-                                                  onChange={e => setPadelInputs(prev => ({
-                                                    ...prev,
-                                                    [fx.id]: { ...prev[fx.id], [aKey]: e.target.value },
-                                                  }))}
-                                                  className="w-14 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                                />
-                                                <span className="text-slate-600 text-xs">–</span>
-                                                <input
-                                                  type="number" min="0" placeholder="0"
-                                                  disabled={isLocked}
-                                                  value={pi[bKey]}
-                                                  onChange={e => setPadelInputs(prev => ({
-                                                    ...prev,
-                                                    [fx.id]: { ...prev[fx.id], [bKey]: e.target.value },
-                                                  }))}
-                                                  className="w-14 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                                />
-                                              </div>
-                                            );
-                                          })}
-                                          <div className="flex justify-end mt-2">
-                                            <button
-                                              disabled={isLocked || savingFixture === fx.id}
-                                              onClick={() => savePadelScore(fx.id)}
-                                              className="rounded bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                            >
-                                              {savingFixture === fx.id ? '…' : 'Save'}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      );
-                                    }
-
-                                    const inp = scoreInputs[fx.id] ?? { a: '', b: '' };
-                                    return (
-                                      <div
-                                        key={fx.id}
-                                        className="flex items-center gap-2 rounded-lg border border-slate-700 bg-night/60 px-3 py-2"
-                                      >
-                                        <span className="text-sm text-slate-300 flex-1 min-w-0 truncate">
-                                          {squadMap[fx.squadAId]?.name ?? fx.squadAId}
-                                        </span>
-                                        <input
-                                          type="number" min="0" placeholder="0"
-                                          disabled={isLocked}
-                                          value={inp.a}
-                                          onChange={e => setScoreInputs(prev => ({
-                                            ...prev,
-                                            [fx.id]: { ...prev[fx.id], a: e.target.value },
-                                          }))}
-                                          className="w-14 shrink-0 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                        />
-                                        <span className="text-slate-600 text-xs shrink-0">–</span>
-                                        <input
-                                          type="number" min="0" placeholder="0"
-                                          disabled={isLocked}
-                                          value={inp.b}
-                                          onChange={e => setScoreInputs(prev => ({
-                                            ...prev,
-                                            [fx.id]: { ...prev[fx.id], b: e.target.value },
-                                          }))}
-                                          className="w-14 shrink-0 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                        />
-                                        <span className="text-sm text-slate-300 flex-1 min-w-0 truncate text-right">
-                                          {squadMap[fx.squadBId]?.name ?? fx.squadBId}
-                                        </span>
-                                        <button
-                                          disabled={isLocked || savingFixture === fx.id}
-                                          onClick={() => saveScore(fx.id)}
-                                          className="ml-1 shrink-0 rounded bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                          {savingFixture === fx.id ? '…' : 'Save'}
-                                        </button>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* ── Knockout fixtures ── */}
-                    {knockoutFixtures.length > 0 && (
-                      <div className="mt-6">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Knockout</p>
-                        <div className="flex flex-col gap-2">
-                          {knockoutFixtures.map(fx => {
-                            const label = fx.round === 'semi'
-                              ? `SF${fx.sequence}`
-                              : fx.round === 'final'
-                              ? 'Final'
-                              : '3rd/4th';
-                            const hasBothSquads = !!fx.squadAId && !!fx.squadBId;
-                            const isSemi        = fx.round === 'semi';
-                            const sfo           = sfOverrides[fx.id];
-
-                            if (isPadel) {
-                              const pi = padelInputs[fx.id] ?? { p1a: '', p1b: '', p2a: '', p2b: '', p3a: '', p3b: '' };
-                              return (
-                                <div key={fx.id} className="rounded-lg border border-slate-700 bg-night/60 px-3 py-3">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <span className="text-xs text-slate-500 shrink-0 w-12">{label}</span>
-                                    <span className="text-sm text-slate-300 flex-1 font-medium">{squadMap[fx.squadAId]?.name || 'TBD'}</span>
-                                    <span className="text-xs text-slate-500">vs</span>
-                                    <span className="text-sm text-slate-300 flex-1 font-medium text-right">{squadMap[fx.squadBId]?.name || 'TBD'}</span>
-                                  </div>
-                                  {([1, 2, 3] as const).map(pair => {
-                                    const aKey = `p${pair}a` as keyof PadelInput;
-                                    const bKey = `p${pair}b` as keyof PadelInput;
-                                    return (
-                                      <div key={pair} className="flex items-center gap-2 mb-1.5">
-                                        <span className="text-xs text-slate-500 w-12">Pair {pair}</span>
-                                        <input
-                                          type="number" min="0" placeholder="0"
-                                          disabled={isLocked || !hasBothSquads}
-                                          value={pi[aKey]}
-                                          onChange={e => setPadelInputs(prev => ({
-                                            ...prev,
-                                            [fx.id]: { ...prev[fx.id], [aKey]: e.target.value },
-                                          }))}
-                                          className="w-14 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                        />
-                                        <span className="text-slate-600 text-xs">–</span>
-                                        <input
-                                          type="number" min="0" placeholder="0"
-                                          disabled={isLocked || !hasBothSquads}
-                                          value={pi[bKey]}
-                                          onChange={e => setPadelInputs(prev => ({
-                                            ...prev,
-                                            [fx.id]: { ...prev[fx.id], [bKey]: e.target.value },
-                                          }))}
-                                          className="w-14 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                        />
-                                      </div>
-                                    );
-                                  })}
-                                  <div className="flex justify-end mt-2">
-                                    <button
-                                      disabled={isLocked || !hasBothSquads || savingFixture === fx.id}
-                                      onClick={() => savePadelScore(fx.id)}
-                                      className="rounded bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                      {savingFixture === fx.id ? '…' : 'Save'}
-                                    </button>
-                                  </div>
-
-                                  {/* SF Override */}
-                                  {isSemi && sfo && (
-                                    <SfOverrideSection
-                                      fx={fx}
-                                      sfo={sfo}
-                                      divisionSquads={divisionSquads}
-                                      isLocked={isLocked}
-                                      saving={savingSfOver === fx.id}
-                                      onChange={(field, value) => setSfOverrides(prev => ({
-                                        ...prev,
-                                        [fx.id]: { ...prev[fx.id], [field]: value },
-                                      }))}
-                                      onSave={() => saveSfOverride(fx.id)}
-                                    />
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            const inp = scoreInputs[fx.id] ?? { a: '', b: '' };
+                    {isGolf ? (
+                      /* ── Golf ── */
+                      <div className="px-5 py-5">
+                        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400">Scores</p>
+                        <div className="flex flex-col gap-1.5">
+                          {divisionSquads.map(squad => {
+                            const key = `${instance.id}-${squad.id}`;
+                            const saved = data.golfScores.find(
+                              g => g.eventInstanceId === instance.id && g.squadId === squad.id
+                            );
                             return (
-                              <div key={fx.id} className="rounded-lg border border-slate-700 bg-night/60 px-3 py-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-slate-500 shrink-0 w-12">{label}</span>
-                                  <span className="text-sm text-slate-300 flex-1 min-w-0 truncate">
-                                    {squadMap[fx.squadAId]?.name || 'TBD'}
-                                  </span>
-                                  <input
-                                    type="number" min="0" placeholder="0"
-                                    disabled={isLocked || !hasBothSquads}
-                                    value={inp.a}
-                                    onChange={e => setScoreInputs(prev => ({
-                                      ...prev,
-                                      [fx.id]: { ...prev[fx.id], a: e.target.value },
-                                    }))}
-                                    className="w-14 shrink-0 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                  />
-                                  <span className="text-slate-600 text-xs shrink-0">–</span>
-                                  <input
-                                    type="number" min="0" placeholder="0"
-                                    disabled={isLocked || !hasBothSquads}
-                                    value={inp.b}
-                                    onChange={e => setScoreInputs(prev => ({
-                                      ...prev,
-                                      [fx.id]: { ...prev[fx.id], b: e.target.value },
-                                    }))}
-                                    className="w-14 shrink-0 rounded border border-slate-600 bg-night px-2 py-2 text-white text-center focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                                  />
-                                  <span className="text-sm text-slate-300 flex-1 min-w-0 truncate text-right">
-                                    {squadMap[fx.squadBId]?.name || 'TBD'}
-                                  </span>
-                                  <button
-                                    disabled={isLocked || !hasBothSquads || savingFixture === fx.id}
-                                    onClick={() => saveScore(fx.id)}
-                                    className="ml-1 shrink-0 rounded bg-slate-700 px-3 py-2 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                  >
-                                    {savingFixture === fx.id ? '…' : 'Save'}
-                                  </button>
-                                </div>
-
-                                {/* SF Override */}
-                                {isSemi && sfo && (
-                                  <SfOverrideSection
-                                    fx={fx}
-                                    sfo={sfo}
-                                    divisionSquads={divisionSquads}
-                                    isLocked={isLocked}
-                                    saving={savingSfOver === fx.id}
-                                    onChange={(field, value) => setSfOverrides(prev => ({
-                                      ...prev,
-                                      [fx.id]: { ...prev[fx.id], [field]: value },
-                                    }))}
-                                    onSave={() => saveSfOverride(fx.id)}
-                                  />
-                                )}
+                              <div key={squad.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+                                <span className={`flex-1 text-sm font-medium ${saved ? 'text-navy' : 'text-gray-500'}`}>
+                                  {squad.name}
+                                </span>
+                                <input
+                                  type="number" min="0" placeholder="—" disabled={isLocked}
+                                  value={golfInputs[key] ?? ''}
+                                  onChange={e => setGolfInputs(p => ({ ...p, [key]: e.target.value }))}
+                                  className="w-20 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                                />
+                                <button
+                                  disabled={isLocked || savingGolf === key}
+                                  onClick={() => saveGolfScore(instance.id, squad.id)}
+                                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
+                                >
+                                  {savingGolf === key ? '…' : 'Save'}
+                                </button>
                               </div>
                             );
                           })}
                         </div>
                       </div>
+
+                    ) : (
+                      /* ── Preset A ── */
+                      <>
+                        {/* SECTION 1 — DRAW */}
+                        <div className="border-b border-gray-100 px-5 py-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Draw</p>
+                            {instancePools.length > 0 && (
+                              <button
+                                disabled={isLocked || genDraw === instance.id}
+                                onClick={() => generateDraw(instance.id, true)}
+                                className="text-xs text-gray-400 underline underline-offset-2 hover:text-navy disabled:opacity-40 transition-colors"
+                              >
+                                {genDraw === instance.id ? 'Regenerating…' : 'Regenerate Draw'}
+                              </button>
+                            )}
+                          </div>
+
+                          {instancePools.length === 0 ? (
+                            <button
+                              disabled={isLocked || genDraw === instance.id}
+                              onClick={() => generateDraw(instance.id, false)}
+                              className="w-full rounded-xl border-2 border-dashed border-gray-200 py-6 text-sm font-semibold text-gray-400 transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+                            >
+                              {genDraw === instance.id ? 'Generating…' : '+ Generate Draw'}
+                            </button>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                              {instancePools.map(pool => (
+                                <div key={pool.id} className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
+                                  <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+                                    Pool {pool.name}
+                                  </p>
+                                  <div className="flex flex-col gap-1">
+                                    {pool.squadIds.map(sid => (
+                                      <span key={sid} className="truncate text-sm font-medium text-navy">
+                                        {squadMap[sid]?.name ?? sid}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* SECTION 2 — POOL RESULTS */}
+                        {instancePools.length > 0 && (
+                          <div className="border-b border-gray-100 px-5 py-4">
+                            <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-400">Pool Results</p>
+                            <div className="flex flex-col gap-5">
+                              {instancePools.map(pool => {
+                                const pf = poolFx
+                                  .filter(f => f.poolId === pool.id)
+                                  .sort((a, b) => a.sequence - b.sequence);
+                                return (
+                                  <div key={pool.id}>
+                                    <p className="mb-2 text-xs font-semibold uppercase text-gray-400">Pool {pool.name}</p>
+                                    <div className="flex flex-col gap-1.5">
+                                      {pf.map(fx => renderPoolRow(fx, isPadel, isLocked, squadMap))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SECTION 3 — KNOCKOUT */}
+                        {knockoutFx.length > 0 && (
+                          <div className="border-b border-gray-100 px-5 py-4">
+                            <p className="mb-4 text-xs font-bold uppercase tracking-wider text-gray-400">Knockout</p>
+                            <div className="flex flex-col gap-1.5">
+                              {knockoutFx.map(fx =>
+                                renderKnockoutRow(fx, isPadel, isLocked, divisionSquads, squadMap)
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
+
+                    {/* LOCK / UNLOCK */}
+                    <div className="px-5 py-4">
+                      <button
+                        disabled={lockingEv === instance.id}
+                        onClick={() => toggleLock(instance.id, !isLocked)}
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
+                          isLocked
+                            ? 'border border-gray-300 text-gray-500 hover:border-gray-400 hover:text-navy'
+                            : 'bg-red-500 text-white hover:bg-red-600'
+                        }`}
+                      >
+                        {lockingEv === instance.id ? 'Saving…' : isLocked ? 'Unlock Event' : 'Lock Event'}
+                      </button>
+                    </div>
+
                   </div>
                 )}
-
-                {/* Lock / Unlock */}
-                <div className="mt-5 pt-4 border-t border-slate-800">
-                  <button
-                    disabled={lockingEvent === instance.id}
-                    onClick={() => toggleLock(instance.id, !isLocked)}
-                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                      isLocked
-                        ? 'border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white'
-                        : 'bg-accent text-night hover:bg-accent/90'
-                    }`}
-                  >
-                    {lockingEvent === instance.id
-                      ? 'Saving…'
-                      : isLocked ? 'Unlock Event' : 'Lock Event'}
-                  </button>
-                </div>
-
               </div>
-            </div>
-          );
-        })}
-      </div>
-    </main>
-  );
-}
+            );
+          })}
 
-// ── SF Override sub-component ────────────────────────────────────────────────
-
-function SfOverrideSection({
-  fx,
-  sfo,
-  divisionSquads,
-  isLocked,
-  saving,
-  onChange,
-  onSave,
-}: {
-  fx: StoredFixture;
-  sfo: SfOverride;
-  divisionSquads: Squad[];
-  isLocked: boolean;
-  saving: boolean;
-  onChange: (field: keyof SfOverride, value: string | boolean) => void;
-  onSave: () => void;
-}) {
-  return (
-    <div className="mt-3 pt-3 border-t border-slate-800">
-      <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400">
-        <input
-          type="checkbox"
-          disabled={isLocked}
-          checked={sfo.enabled}
-          onChange={e => onChange('enabled', e.target.checked)}
-          className="rounded border-slate-600 accent-accent disabled:cursor-not-allowed"
-        />
-        Override auto-selection
-      </label>
-
-      {sfo.enabled && (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <select
-            disabled={isLocked}
-            value={sfo.squadAId}
-            onChange={e => onChange('squadAId', e.target.value)}
-            className="rounded border border-slate-600 bg-night px-2 py-1.5 text-xs text-white focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <option value="">Squad A…</option>
-            {divisionSquads.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <span className="text-xs text-slate-500">vs</span>
-          <select
-            disabled={isLocked}
-            value={sfo.squadBId}
-            onChange={e => onChange('squadBId', e.target.value)}
-            className="rounded border border-slate-600 bg-night px-2 py-1.5 text-xs text-white focus:border-accent focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <option value="">Squad B…</option>
-            {divisionSquads.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-          <button
-            disabled={isLocked || saving || !sfo.squadAId || !sfo.squadBId}
-            onClick={onSave}
-            className="rounded bg-slate-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {saving ? '…' : 'Apply'}
-          </button>
         </div>
-      )}
-
-      {!sfo.enabled && sfo.squadAId && (
-        <button
-          disabled={isLocked || saving}
-          onClick={onSave}
-          className="mt-2 rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          {saving ? '…' : 'Reset to auto'}
-        </button>
-      )}
+      </div>
     </div>
   );
 }

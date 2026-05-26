@@ -4,9 +4,26 @@ import { loadPools } from '../../../../lib/data';
 
 type RawFx = Record<string, unknown> & { _recordId: string };
 
+function h2hPts(idA: string, idB: string, fixtures: RawFx[]): number {
+  let pA = 0, pB = 0;
+  for (const fx of fixtures) {
+    const fA = fx.squadAId as string, fB = fx.squadBId as string;
+    if ((fA !== idA || fB !== idB) && (fA !== idB || fB !== idA)) continue;
+    const sA = typeof fx.scoreA === 'number' ? fx.scoreA : undefined;
+    const sB = typeof fx.scoreB === 'number' ? fx.scoreB : undefined;
+    if (sA === undefined || sB === undefined) continue;
+    if (fA === idA) {
+      if (sA > sB) pA += 2; else if (sB > sA) pB += 2; else { pA++; pB++; }
+    } else {
+      if (sB > sA) pA += 2; else if (sA > sB) pB += 2; else { pA++; pB++; }
+    }
+  }
+  return pA - pB;
+}
+
 function poolStandings(squadIds: string[], fixtures: RawFx[]) {
-  const stats: Record<string, { pts: number; w: number }> = {};
-  for (const id of squadIds) stats[id] = { pts: 0, w: 0 };
+  const stats: Record<string, { pts: number; gf: number; ga: number }> = {};
+  for (const id of squadIds) stats[id] = { pts: 0, gf: 0, ga: 0 };
 
   for (const fx of fixtures) {
     const sA = typeof fx.scoreA === 'number' ? fx.scoreA : undefined;
@@ -15,14 +32,21 @@ function poolStandings(squadIds: string[], fixtures: RawFx[]) {
     const a = stats[fx.squadAId as string];
     const b = stats[fx.squadBId as string];
     if (!a || !b) continue;
-    if (sA > sB)      { a.pts += 2; a.w++; }
-    else if (sB > sA) { b.pts += 2; b.w++; }
-    else              { a.pts++;    b.pts++; }
+    a.gf += sA; a.ga += sB;
+    b.gf += sB; b.ga += sA;
+    if (sA > sB)      { a.pts += 2; }
+    else if (sB > sA) { b.pts += 2; }
+    else              { a.pts++; b.pts++; }
   }
 
   return Object.entries(stats)
-    .map(([id, s]) => ({ id, ...s }))
-    .sort((a, b) => b.pts - a.pts || b.w - a.w);
+    .map(([id, s]) => ({ id, ...s, gd: s.gf - s.ga }))
+    .sort((a, b) => {
+      if (a.pts !== b.pts) return b.pts - a.pts;
+      const h2h = h2hPts(a.id, b.id, fixtures);
+      if (h2h !== 0) return -h2h;
+      return b.gd - a.gd;
+    });
 }
 
 export async function POST(request: Request) {
