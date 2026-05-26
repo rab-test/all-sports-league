@@ -47,7 +47,14 @@ export async function loadFixtures(): Promise<Fixture[]> {
     poolId: r.poolId || null,
     scoreA: typeof r.scoreA === 'number' ? r.scoreA : undefined,
     scoreB: typeof r.scoreB === 'number' ? r.scoreB : undefined,
+    pair1A: typeof r.pair1A === 'number' ? r.pair1A : undefined,
+    pair1B: typeof r.pair1B === 'number' ? r.pair1B : undefined,
+    pair2A: typeof r.pair2A === 'number' ? r.pair2A : undefined,
+    pair2B: typeof r.pair2B === 'number' ? r.pair2B : undefined,
+    pair3A: typeof r.pair3A === 'number' ? r.pair3A : undefined,
+    pair3B: typeof r.pair3B === 'number' ? r.pair3B : undefined,
     locked: r.locked === true,
+    sfOverride: r.sfOverride === true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   })) as unknown as Fixture[];
 }

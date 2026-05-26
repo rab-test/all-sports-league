@@ -83,9 +83,16 @@ export type Fixture = {
   squadBId: string;
   scoreA?: number;
   scoreB?: number;
+  pair1A?: number;
+  pair1B?: number;
+  pair2A?: number;
+  pair2B?: number;
+  pair3A?: number;
+  pair3B?: number;
   round: 'pool' | 'semi' | 'final' | '3rd-4th';
   sequence: number;
   locked?: boolean;
+  sfOverride?: boolean;
 };
 
 export type GolfScore = {

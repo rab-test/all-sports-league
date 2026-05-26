@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   loadEventInstances, loadEventDays, loadDivisions,
-  loadPools, loadFixtures, loadSquads,
+  loadPools, loadFixtures, loadSquads, loadGolfScores,
 } from '../../../lib/data';
 import type { Fixture } from '../../../lib/league';
+
+const GOLF_EVENT_POINTS = [8, 6, 4, 3, 2, 2, 0, 0];
 
 const SPORT_BADGE: Record<string, string> = {
   'Padel':             'bg-padel text-white',
@@ -33,8 +35,8 @@ function computeStandings(squadIds: string[], fixtures: Fixture[]) {
     const b = stats[fx.squadBId];
     if (!a || !b) continue;
     a.p++; b.p++;
-    if (fx.scoreA > fx.scoreB)      { a.w++; a.pts += 3; b.l++; }
-    else if (fx.scoreB > fx.scoreA) { b.w++; b.pts += 3; a.l++; }
+    if (fx.scoreA > fx.scoreB)      { a.w++; a.pts += 2; b.l++; }
+    else if (fx.scoreB > fx.scoreA) { b.w++; b.pts += 2; a.l++; }
     else                            { a.d++; a.pts += 1; b.d++; b.pts += 1; }
   }
 
@@ -84,13 +86,14 @@ function FixtureRow({
 }
 
 export default async function EventInstancePage({ params }: { params: { eventId: string } }) {
-  const [instances, eventDays, divisions, pools, fixtures, squads] = await Promise.all([
+  const [instances, eventDays, divisions, pools, fixtures, squads, allGolfScores] = await Promise.all([
     loadEventInstances(),
     loadEventDays(),
     loadDivisions(),
     loadPools(),
     loadFixtures(),
     loadSquads(),
+    loadGolfScores(),
   ]);
 
   const instance = instances.find(i => i.id === params.eventId);
@@ -107,6 +110,16 @@ export default async function EventInstancePage({ params }: { params: { eventId:
 
   const isGolf     = instance.sport === 'Golf';
   const badgeClass = SPORT_BADGE[instance.sport] ?? 'bg-gray-200 text-navy';
+
+  const golfScores = allGolfScores
+    .filter(g => g.eventInstanceId === params.eventId)
+    .sort((a, b) => a.totalScore - b.totalScore)
+    .map((gs, i) => ({
+      squad: squadMap[gs.squadId],
+      totalScore: gs.totalScore,
+      eventPoints: GOLF_EVENT_POINTS[i] ?? 0,
+      position: i + 1,
+    }));
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -130,9 +143,37 @@ export default async function EventInstancePage({ params }: { params: { eventId:
       {isGolf ? (
         <section>
           <h2 className="mb-3 text-lg font-black text-navy">Leaderboard</h2>
-          <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
-            Leaderboard published after round completion
-          </div>
+          {golfScores.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
+              Leaderboard published after round completion
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">#</th>
+                    <th className="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted">Squad</th>
+                    <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">Score</th>
+                    <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-accent">Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {golfScores.map((row, i) => (
+                    <tr
+                      key={row.squad?.id ?? i}
+                      className={`border-t border-gray-100 ${i % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}
+                    >
+                      <td className="px-4 py-2.5 text-center font-semibold text-muted">{row.position}</td>
+                      <td className="px-4 py-2.5 font-semibold text-navy">{row.squad?.name ?? 'Unknown'}</td>
+                      <td className="px-2 py-2.5 text-center text-muted">{row.totalScore}</td>
+                      <td className="px-2 py-2.5 text-center font-black text-accent">{row.eventPoints}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
       ) : (
         <>

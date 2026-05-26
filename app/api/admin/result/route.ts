@@ -15,8 +15,8 @@ function poolStandings(squadIds: string[], fixtures: RawFx[]) {
     const a = stats[fx.squadAId as string];
     const b = stats[fx.squadBId as string];
     if (!a || !b) continue;
-    if (sA > sB)      { a.pts += 3; a.w++; }
-    else if (sB > sA) { b.pts += 3; b.w++; }
+    if (sA > sB)      { a.pts += 2; a.w++; }
+    else if (sB > sA) { b.pts += 2; b.w++; }
     else              { a.pts++;    b.pts++; }
   }
 
@@ -44,8 +44,8 @@ async function maybeUpdateSemis(eid: string, allFx: RawFx[]) {
   const sf1 = allFx.find(f => f.id === `sf1-${eid}`);
   const sf2 = allFx.find(f => f.id === `sf2-${eid}`);
   await Promise.all([
-    sf1 ? updateRecord('Fixtures', sf1._recordId, { squadAId: pAStand[0].id, squadBId: pBStand[1].id }) : null,
-    sf2 ? updateRecord('Fixtures', sf2._recordId, { squadAId: pBStand[0].id, squadBId: pAStand[1].id }) : null,
+    sf1 && !sf1.sfOverride ? updateRecord('Fixtures', sf1._recordId, { squadAId: pAStand[0].id, squadBId: pBStand[1].id }) : null,
+    sf2 && !sf2.sfOverride ? updateRecord('Fixtures', sf2._recordId, { squadAId: pBStand[0].id, squadBId: pAStand[1].id }) : null,
   ]);
 }
 
@@ -78,16 +78,42 @@ async function maybeUpdateFinal(eid: string, allFx: RawFx[]) {
 }
 
 export async function POST(request: Request) {
-  const { fixtureId, scoreA, scoreB } = await request.json();
+  const body = await request.json();
+  const { fixtureId } = body;
 
   const allFx  = await fetchTable<Record<string, unknown>>('Fixtures') as RawFx[];
   const fixture = allFx.find(f => f.id === fixtureId);
   if (!fixture) return NextResponse.json({ error: 'Fixture not found' }, { status: 404 });
 
-  await updateRecord('Fixtures', fixture._recordId, { scoreA, scoreB });
+  const updateFields: Record<string, unknown> = {};
+  let scoreA: number;
+  let scoreB: number;
 
-  // Apply score locally so progression checks see the updated value without a re-fetch
-  const updated = allFx.map(f => f.id === fixtureId ? { ...f, scoreA, scoreB } : f) as RawFx[];
+  if (body.pair1A !== undefined) {
+    // Padel: calculate pairs won from pair scores
+    const pairs: [number, number][] = [
+      [Number(body.pair1A), Number(body.pair1B)],
+      [Number(body.pair2A), Number(body.pair2B)],
+      [Number(body.pair3A), Number(body.pair3B)],
+    ];
+    scoreA = pairs.filter(([a, b]) => a > b).length;
+    scoreB = pairs.filter(([a, b]) => b > a).length;
+    Object.assign(updateFields, {
+      pair1A: pairs[0][0], pair1B: pairs[0][1],
+      pair2A: pairs[1][0], pair2B: pairs[1][1],
+      pair3A: pairs[2][0], pair3B: pairs[2][1],
+    });
+  } else {
+    scoreA = Number(body.scoreA);
+    scoreB = Number(body.scoreB);
+  }
+
+  updateFields.scoreA = scoreA;
+  updateFields.scoreB = scoreB;
+
+  await updateRecord('Fixtures', fixture._recordId, updateFields);
+
+  const updated = allFx.map(f => f.id === fixtureId ? { ...f, ...updateFields } : f) as RawFx[];
   const round   = fixture.round as string;
   const eid     = fixture.eventInstanceId as string;
 
