@@ -91,6 +91,7 @@ export type Fixture = {
   pair3B?: number;
   round: 'pool' | 'semi' | 'final' | '3rd-4th';
   sequence: number;
+  startTime?: string;
   locked?: boolean;
   sfOverride?: boolean;
 };

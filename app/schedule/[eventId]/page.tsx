@@ -130,6 +130,9 @@ function FixtureRow({
         highlightFinal ? 'border-red shadow-sm' : 'border-gray-200'
       }`}
     >
+      {fx.startTime && (
+        <span className="w-10 shrink-0 tabular-nums text-xs text-muted">{fx.startTime}</span>
+      )}
       {label && (
         <span className="w-8 shrink-0 text-xs font-bold text-muted">{label}</span>
       )}
