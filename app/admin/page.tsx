@@ -125,28 +125,56 @@ export default function AdminPage() {
   const [savedKeys,  setSavedKeys]  = useState<Set<string>>(new Set());
 
   // ── Input initialisation ──────────────────────────────────────────────────
+  //
+  // Uses functional setState so we can read `prev` at apply-time rather than
+  // at call-time.  The rule for every input type:
+  //   • If the user has already typed something (non-empty), KEEP IT.
+  //   • Only write a value from Airtable when the slot is still empty.
+  // This prevents background fetchData calls from clobbering in-progress edits.
 
   function initInputs(d: AdminData) {
     const instMap = Object.fromEntries(d.instances.map(i => [i.id, i]));
-    const si: Record<string, { a: string; b: string }> = {};
-    const pi: Record<string, PadelInput> = {};
-    const sfo: Record<string, SfOverrideState> = {};
 
-    for (const fx of d.fixtures) {
-      si[fx.id] = {
-        a: fx.scoreA != null ? String(fx.scoreA) : '',
-        b: fx.scoreB != null ? String(fx.scoreB) : '',
-      };
-      if (instMap[fx.eventInstanceId]?.sport === 'Padel') {
-        pi[fx.id] = {
-          p1a: fx.pair1A != null ? String(fx.pair1A) : '',
-          p1b: fx.pair1B != null ? String(fx.pair1B) : '',
-          p2a: fx.pair2A != null ? String(fx.pair2A) : '',
-          p2b: fx.pair2B != null ? String(fx.pair2B) : '',
-          p3a: fx.pair3A != null ? String(fx.pair3A) : '',
-          p3b: fx.pair3B != null ? String(fx.pair3B) : '',
-        };
+    // ── score inputs ────────────────────────────────────────────────────────
+    setScoreInputs(prev => {
+      const next = { ...prev };
+      for (const fx of d.fixtures) {
+        const existing = prev[fx.id];
+        // Only initialise when both slots are empty (user hasn't touched them)
+        if (!existing || (existing.a === '' && existing.b === '')) {
+          next[fx.id] = {
+            a: fx.scoreA != null ? String(fx.scoreA) : '',
+            b: fx.scoreB != null ? String(fx.scoreB) : '',
+          };
+        }
       }
+      return next;
+    });
+
+    // ── padel pair inputs ───────────────────────────────────────────────────
+    setPadelInputs(prev => {
+      const next = { ...prev };
+      for (const fx of d.fixtures) {
+        if (instMap[fx.eventInstanceId]?.sport !== 'Padel') continue;
+        const existing = prev[fx.id];
+        const hasAny = existing && Object.values(existing).some(v => v !== '');
+        if (!hasAny) {
+          next[fx.id] = {
+            p1a: fx.pair1A != null ? String(fx.pair1A) : '',
+            p1b: fx.pair1B != null ? String(fx.pair1B) : '',
+            p2a: fx.pair2A != null ? String(fx.pair2A) : '',
+            p2b: fx.pair2B != null ? String(fx.pair2B) : '',
+            p3a: fx.pair3A != null ? String(fx.pair3A) : '',
+            p3b: fx.pair3B != null ? String(fx.pair3B) : '',
+          };
+        }
+      }
+      return next;
+    });
+
+    // ── SF overrides — always refresh (not user-typed free-form values) ─────
+    const sfo: Record<string, SfOverrideState> = {};
+    for (const fx of d.fixtures) {
       if (fx.round === 'semi') {
         sfo[fx.id] = {
           enabled:  fx.sfOverride ?? false,
@@ -155,16 +183,19 @@ export default function AdminPage() {
         };
       }
     }
-
-    setScoreInputs(si);
-    setPadelInputs(pi);
     setSfOverrides(sfo);
 
-    const gi: Record<string, string> = {};
-    for (const gs of d.golfScores) {
-      gi[`${gs.eventInstanceId}-${gs.squadId}`] = String(gs.totalScore);
-    }
-    setGolfInputs(gi);
+    // ── golf inputs ─────────────────────────────────────────────────────────
+    setGolfInputs(prev => {
+      const next = { ...prev };
+      for (const gs of d.golfScores) {
+        const key = `${gs.eventInstanceId}-${gs.squadId}`;
+        if (!prev[key]) {
+          next[key] = String(gs.totalScore);
+        }
+      }
+      return next;
+    });
   }
 
   // ── Data fetching ─────────────────────────────────────────────────────────
@@ -208,18 +239,14 @@ export default function AdminPage() {
   async function saveScore(fxId: string) {
     const inp = scoreInputs[fxId];
     if (!inp || inp.a === '' || inp.b === '') return;
-    const { a, b } = inp; // capture before async
     setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fixtureId: fxId, scoreA: Number(a), scoreB: Number(b) }),
+        body: JSON.stringify({ fixtureId: fxId, scoreA: Number(inp.a), scoreB: Number(inp.b) }),
       });
       await fetchData();
-      // Restore the typed values — fetchData/initInputs may overwrite them if
-      // Airtable hasn't propagated yet or the field comes back in an unexpected shape
-      setScoreInputs(prev => ({ ...prev, [fxId]: { a, b } }));
       markSaved(fxId);
     } finally {
       setSavingFx(null);
@@ -230,7 +257,6 @@ export default function AdminPage() {
     const inp = padelInputs[fxId];
     if (!inp) return;
     if ([inp.p1a, inp.p1b, inp.p2a, inp.p2b, inp.p3a, inp.p3b].some(v => v === '')) return;
-    const savedInp = { ...inp }; // capture before async
     setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
@@ -244,7 +270,6 @@ export default function AdminPage() {
         }),
       });
       await fetchData();
-      setPadelInputs(prev => ({ ...prev, [fxId]: savedInp }));
       markSaved(fxId);
     } finally {
       setSavingFx(null);
@@ -417,16 +442,23 @@ export default function AdminPage() {
     divisionSquads: Squad[],
     squadMap: Record<string, Squad>,
   ) {
-    const label        = fx.round === 'semi' ? `SF${fx.sequence}` : fx.round === 'final' ? 'Final' : '3rd/4th';
-    const hasBoth      = !!(fx.squadAId && fx.squadBId);
-    const isSemi       = fx.round === 'semi';
-    const hasResult    = fx.scoreA != null && fx.scoreB != null;
-    const aWins        = hasResult && (fx.scoreA ?? 0) > (fx.scoreB ?? 0);
-    const bWins        = hasResult && (fx.scoreB ?? 0) > (fx.scoreA ?? 0);
-    const clsA         = aWins ? 'font-bold text-accent' : bWins ? 'text-gray-400' : hasBoth ? 'font-medium text-navy' : 'text-gray-300 italic';
-    const clsB         = bWins ? 'font-bold text-accent' : aWins ? 'text-gray-400' : hasBoth ? 'font-medium text-navy' : 'text-gray-300 italic';
-    const sfoOpen      = expandedSfOver.has(fx.id);
-    const sfo          = sfOverrides[fx.id];
+    const label    = fx.round === 'semi' ? `SF${fx.sequence}` : fx.round === 'final' ? 'Final' : '3rd/4th';
+    const isSemi   = fx.round === 'semi';
+    const sfoOpen  = expandedSfOver.has(fx.id);
+    const sfo      = sfOverrides[fx.id];
+
+    // Derive display names from the fixture data (populated by the result route
+    // once all pool scores are in, or from a manual SF override).
+    const nameA = squadMap[fx.squadAId]?.name;
+    const nameB = squadMap[fx.squadBId]?.name;
+    // Enable score inputs when both squads are known, or when override has both set.
+    const hasBoth = !!(nameA && nameB) || !!(sfo?.enabled && sfo.squadAId && sfo.squadBId);
+
+    const hasResult = fx.scoreA != null && fx.scoreB != null;
+    const aWins     = hasResult && (fx.scoreA ?? 0) > (fx.scoreB ?? 0);
+    const bWins     = hasResult && (fx.scoreB ?? 0) > (fx.scoreA ?? 0);
+    const clsA      = aWins ? 'font-bold text-accent' : bWins ? 'text-gray-400' : hasBoth ? 'font-medium text-navy' : 'text-gray-300 italic';
+    const clsB      = bWins ? 'font-bold text-accent' : aWins ? 'text-gray-400' : hasBoth ? 'font-medium text-navy' : 'text-gray-300 italic';
 
     const scoreRow = (extraRight?: React.ReactNode) => {
       if (isPadel) {
@@ -436,11 +468,11 @@ export default function AdminPage() {
           <>
             <div className="flex items-center gap-2 bg-white px-3 py-2.5">
               <span className="w-10 shrink-0 text-xs font-bold text-gray-400">{label}</span>
-              <span className={`flex-1 text-sm ${clsA}`}>{squadMap[fx.squadAId]?.name || 'TBD'}</span>
+              <span className={`flex-1 text-sm ${clsA}`}>{nameA || 'TBD'}</span>
               <span className={`shrink-0 tabular-nums text-sm ${hasResult ? 'font-bold text-accent' : 'text-gray-300'}`}>
                 {hasResult ? `${fx.scoreA} – ${fx.scoreB}` : 'vs'}
               </span>
-              <span className={`flex-1 text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name || 'TBD'}</span>
+              <span className={`flex-1 text-right text-sm ${clsB}`}>{nameB || 'TBD'}</span>
               {hasBoth && (
                 <button
                   onClick={() => togglePadelFx(fx.id)}
@@ -492,7 +524,7 @@ export default function AdminPage() {
       return (
         <div className="flex items-center gap-2 bg-white px-3 py-2.5">
           <span className="w-10 shrink-0 text-xs font-bold text-gray-400">{label}</span>
-          <span className={`flex-1 min-w-0 truncate text-sm ${clsA}`}>{squadMap[fx.squadAId]?.name || 'TBD'}</span>
+          <span className={`flex-1 min-w-0 truncate text-sm ${clsA}`}>{nameA || 'TBD'}</span>
           <input
             type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
             value={inp.a}
@@ -508,7 +540,7 @@ export default function AdminPage() {
             onBlur={() => saveScore(fx.id)}
             className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
           />
-          <span className={`flex-1 min-w-0 truncate text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name || 'TBD'}</span>
+          <span className={`flex-1 min-w-0 truncate text-right text-sm ${clsB}`}>{nameB || 'TBD'}</span>
           <span className="ml-1 w-14 shrink-0 text-right text-xs font-medium text-green-600">
             {savedKeys.has(fx.id) ? 'Saved ✓' : savingFx === fx.id ? '…' : ''}
           </span>
