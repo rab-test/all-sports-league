@@ -122,6 +122,7 @@ export default function AdminPage() {
   const [savingSfo,  setSavingSfo]  = useState<string | null>(null);
   const [genDraw,    setGenDraw]    = useState<string | null>(null);
   const [lockingEv,  setLockingEv]  = useState<string | null>(null);
+  const [savedKeys,  setSavedKeys]  = useState<Set<string>>(new Set());
 
   // ── Input initialisation ──────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ export default function AdminPage() {
 
   async function saveScore(fxId: string) {
     const inp = scoreInputs[fxId];
-    if (!inp) return;
+    if (!inp || inp.a === '' || inp.b === '') return;
     setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
@@ -215,6 +216,7 @@ export default function AdminPage() {
         body: JSON.stringify({ fixtureId: fxId, scoreA: Number(inp.a), scoreB: Number(inp.b) }),
       });
       await fetchData();
+      markSaved(fxId);
     } finally {
       setSavingFx(null);
     }
@@ -223,6 +225,7 @@ export default function AdminPage() {
   async function savePadelScore(fxId: string) {
     const inp = padelInputs[fxId];
     if (!inp) return;
+    if ([inp.p1a, inp.p1b, inp.p2a, inp.p2b, inp.p3a, inp.p3b].some(v => v === '')) return;
     setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
@@ -236,6 +239,7 @@ export default function AdminPage() {
         }),
       });
       await fetchData();
+      markSaved(fxId);
     } finally {
       setSavingFx(null);
     }
@@ -274,6 +278,7 @@ export default function AdminPage() {
         body: JSON.stringify({ eventInstanceId: eid, squadId, totalScore: Number(val) }),
       });
       await fetchData();
+      markSaved(key);
     } finally {
       setSavingGolf(null);
     }
@@ -291,6 +296,11 @@ export default function AdminPage() {
     } finally {
       setLockingEv(null);
     }
+  }
+
+  function markSaved(key: string) {
+    setSavedKeys(prev => new Set(prev).add(key));
+    setTimeout(() => setSavedKeys(prev => { const s = new Set(prev); s.delete(key); return s; }), 2000);
   }
 
   function toggleCard(id: string) {
@@ -342,6 +352,7 @@ export default function AdminPage() {
                       type="number" min="0" placeholder="0" disabled={isLocked}
                       value={pi[ak]}
                       onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [ak]: e.target.value } }))}
+                      onBlur={() => savePadelScore(fx.id)}
                       className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
                     />
                     <span className="text-xs text-gray-300">–</span>
@@ -349,19 +360,16 @@ export default function AdminPage() {
                       type="number" min="0" placeholder="0" disabled={isLocked}
                       value={pi[bk]}
                       onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [bk]: e.target.value } }))}
+                      onBlur={() => savePadelScore(fx.id)}
                       className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
                     />
                   </div>
                 );
               })}
-              <div className="mt-3 flex justify-end">
-                <button
-                  disabled={isLocked || savingFx === fx.id}
-                  onClick={() => savePadelScore(fx.id)}
-                  className="rounded-lg bg-accent px-4 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
-                >
-                  {savingFx === fx.id ? '…' : 'Save'}
-                </button>
+              <div className="mt-2 flex justify-end">
+                <span className="text-xs font-medium text-green-600">
+                  {savedKeys.has(fx.id) ? 'Saved ✓' : savingFx === fx.id ? '…' : ''}
+                </span>
               </div>
             </div>
           )}
@@ -377,6 +385,7 @@ export default function AdminPage() {
           type="number" min="0" placeholder="0" disabled={isLocked}
           value={inp.a}
           onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], a: e.target.value } }))}
+          onBlur={() => saveScore(fx.id)}
           className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
         />
         <span className="shrink-0 text-xs text-gray-300">–</span>
@@ -384,16 +393,13 @@ export default function AdminPage() {
           type="number" min="0" placeholder="0" disabled={isLocked}
           value={inp.b}
           onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], b: e.target.value } }))}
+          onBlur={() => saveScore(fx.id)}
           className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
         />
         <span className={`flex-1 min-w-0 truncate text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name ?? '?'}</span>
-        <button
-          disabled={isLocked || savingFx === fx.id}
-          onClick={() => saveScore(fx.id)}
-          className="ml-1 shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
-        >
-          {savingFx === fx.id ? '…' : 'Save'}
-        </button>
+        <span className="ml-1 w-14 shrink-0 text-right text-xs font-medium text-green-600">
+          {savedKeys.has(fx.id) ? 'Saved ✓' : savingFx === fx.id ? '…' : ''}
+        </span>
       </div>
     );
   }
@@ -451,6 +457,7 @@ export default function AdminPage() {
                         type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
                         value={pi[ak]}
                         onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [ak]: e.target.value } }))}
+                        onBlur={() => savePadelScore(fx.id)}
                         className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
                       />
                       <span className="text-xs text-gray-300">–</span>
@@ -458,19 +465,16 @@ export default function AdminPage() {
                         type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
                         value={pi[bk]}
                         onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [bk]: e.target.value } }))}
+                        onBlur={() => savePadelScore(fx.id)}
                         className="w-14 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
                       />
                     </div>
                   );
                 })}
-                <div className="mt-3 flex justify-end">
-                  <button
-                    disabled={isLocked || !hasBoth || savingFx === fx.id}
-                    onClick={() => savePadelScore(fx.id)}
-                    className="rounded-lg bg-accent px-4 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
-                  >
-                    {savingFx === fx.id ? '…' : 'Save'}
-                  </button>
+                <div className="mt-2 flex justify-end">
+                  <span className="text-xs font-medium text-green-600">
+                    {savedKeys.has(fx.id) ? 'Saved ✓' : savingFx === fx.id ? '…' : ''}
+                  </span>
                 </div>
               </div>
             )}
@@ -487,6 +491,7 @@ export default function AdminPage() {
             type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
             value={inp.a}
             onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], a: e.target.value } }))}
+            onBlur={() => saveScore(fx.id)}
             className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
           />
           <span className="shrink-0 text-xs text-gray-300">–</span>
@@ -494,16 +499,13 @@ export default function AdminPage() {
             type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
             value={inp.b}
             onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], b: e.target.value } }))}
+            onBlur={() => saveScore(fx.id)}
             className="w-14 shrink-0 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
           />
           <span className={`flex-1 min-w-0 truncate text-right text-sm ${clsB}`}>{squadMap[fx.squadBId]?.name || 'TBD'}</span>
-          <button
-            disabled={isLocked || !hasBoth || savingFx === fx.id}
-            onClick={() => saveScore(fx.id)}
-            className="ml-1 shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
-          >
-            {savingFx === fx.id ? '…' : 'Save'}
-          </button>
+          <span className="ml-1 w-14 shrink-0 text-right text-xs font-medium text-green-600">
+            {savedKeys.has(fx.id) ? 'Saved ✓' : savingFx === fx.id ? '…' : ''}
+          </span>
           {extraRight}
         </div>
       );
@@ -718,15 +720,12 @@ export default function AdminPage() {
                                   type="number" min="0" placeholder="—" disabled={isLocked}
                                   value={golfInputs[key] ?? ''}
                                   onChange={e => setGolfInputs(p => ({ ...p, [key]: e.target.value }))}
+                                  onBlur={() => saveGolfScore(instance.id, squad.id)}
                                   className="w-20 rounded border border-gray-200 px-2 py-1.5 text-center text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
                                 />
-                                <button
-                                  disabled={isLocked || savingGolf === key}
-                                  onClick={() => saveGolfScore(instance.id, squad.id)}
-                                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-bold text-night hover:bg-accent/90 disabled:opacity-40 transition-colors"
-                                >
-                                  {savingGolf === key ? '…' : 'Save'}
-                                </button>
+                                <span className="w-14 shrink-0 text-right text-xs font-medium text-green-600">
+                                  {savedKeys.has(key) ? 'Saved ✓' : savingGolf === key ? '…' : ''}
+                                </span>
                               </div>
                             );
                           })}

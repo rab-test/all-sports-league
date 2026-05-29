@@ -29,15 +29,24 @@ function computeStandings(squadIds: string[], fixtures: Fixture[]) {
   const stats: Record<string, { p: number; w: number; d: number; l: number; pts: number }> = {};
   for (const id of squadIds) stats[id] = { p: 0, w: 0, d: 0, l: 0, pts: 0 };
 
+  console.log('[standings] squadIds:', squadIds);
+  console.log('[standings] fixtures:', fixtures.map(f => ({
+    id: f.id, scoreA: f.scoreA, scoreB: f.scoreB,
+    squadAId: f.squadAId, squadBId: f.squadBId,
+  })));
+
   for (const fx of fixtures) {
-    if (fx.scoreA === undefined || fx.scoreB === undefined) continue;
+    if (fx.scoreA == null || fx.scoreB == null) continue;
+    const sa = Number(fx.scoreA);
+    const sb = Number(fx.scoreB);
+    if (isNaN(sa) || isNaN(sb)) continue;
     const a = stats[fx.squadAId];
     const b = stats[fx.squadBId];
     if (!a || !b) continue;
     a.p++; b.p++;
-    if (fx.scoreA > fx.scoreB)      { a.w++; a.pts += 2; b.l++; }
-    else if (fx.scoreB > fx.scoreA) { b.w++; b.pts += 2; a.l++; }
-    else                            { a.d++; a.pts += 1; b.d++; b.pts += 1; }
+    if (sa > sb)      { a.w++; a.pts += 2; b.l++; }
+    else if (sb > sa) { b.w++; b.pts += 2; a.l++; }
+    else              { a.d++; a.pts += 1; b.d++; b.pts += 1; }
   }
 
   return Object.entries(stats)

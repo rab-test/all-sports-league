@@ -2,7 +2,9 @@ import { fetchTable } from './airtable';
 import type { Season, Division, Squad, Player, EventDay, EventInstance, Pool, Fixture, GolfScore } from './league';
 
 function parseArr(val: unknown): string[] {
-  if (!val || typeof val !== 'string') return [];
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter((v): v is string => typeof v === 'string');
+  if (typeof val !== 'string') return [];
   try { return JSON.parse(val); } catch { return []; }
 }
 
@@ -42,17 +44,18 @@ export async function loadPools(): Promise<Pool[]> {
 
 export async function loadFixtures(): Promise<Fixture[]> {
   const records = await fetchTable<Record<string, unknown>>('Fixtures');
+  const toNum = (v: unknown) => (v != null && v !== '') ? Number(v) : undefined;
   return records.map(r => ({
     ...r,
     poolId: r.poolId || null,
-    scoreA: typeof r.scoreA === 'number' ? r.scoreA : undefined,
-    scoreB: typeof r.scoreB === 'number' ? r.scoreB : undefined,
-    pair1A: typeof r.pair1A === 'number' ? r.pair1A : undefined,
-    pair1B: typeof r.pair1B === 'number' ? r.pair1B : undefined,
-    pair2A: typeof r.pair2A === 'number' ? r.pair2A : undefined,
-    pair2B: typeof r.pair2B === 'number' ? r.pair2B : undefined,
-    pair3A: typeof r.pair3A === 'number' ? r.pair3A : undefined,
-    pair3B: typeof r.pair3B === 'number' ? r.pair3B : undefined,
+    scoreA: toNum(r.scoreA),
+    scoreB: toNum(r.scoreB),
+    pair1A: toNum(r.pair1A),
+    pair1B: toNum(r.pair1B),
+    pair2A: toNum(r.pair2A),
+    pair2B: toNum(r.pair2B),
+    pair3A: toNum(r.pair3A),
+    pair3B: toNum(r.pair3B),
     locked: r.locked === true,
     sfOverride: r.sfOverride === true,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
