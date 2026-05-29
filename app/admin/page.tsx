@@ -451,8 +451,8 @@ export default function AdminPage() {
     // once all pool scores are in, or from a manual SF override).
     const nameA = squadMap[fx.squadAId]?.name;
     const nameB = squadMap[fx.squadBId]?.name;
-    // Enable score inputs when both squads are known, or when override has both set.
-    const hasBoth = !!(nameA && nameB) || !!(sfo?.enabled && sfo.squadAId && sfo.squadBId);
+    const hasBoth = !!(nameA && nameB) ||
+      !!(isSemi && sfo?.enabled && sfo.squadAId && sfo.squadBId);
 
     const hasResult = fx.scoreA != null && fx.scoreB != null;
     const aWins     = hasResult && (fx.scoreA ?? 0) > (fx.scoreB ?? 0);

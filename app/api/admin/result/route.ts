@@ -79,11 +79,8 @@ function resolveGroup(group: StRow[], fixtures: RawFx[]): StRow[] {
 }
 
 async function maybeUpdateSemis(eid: string, allFx: RawFx[]) {
-  const poolFx    = allFx.filter(f => f.eventInstanceId === eid && f.round === 'pool');
-  const allScored = poolFx.length > 0 && poolFx.every(
-    f => typeof f.scoreA === 'number' && typeof f.scoreB === 'number'
-  );
-  if (!allScored) return;
+  const poolFx = allFx.filter(f => f.eventInstanceId === eid && f.round === 'pool');
+  if (poolFx.length === 0) return;
 
   const pools = await loadPools();
   const poolA = pools.find(p => p.eventInstanceId === eid && p.name === 'A');
@@ -109,15 +106,15 @@ async function maybeUpdateSemis(eid: string, allFx: RawFx[]) {
 async function maybeUpdateFinal(eid: string, allFx: RawFx[]) {
   const semis = allFx.filter(f => f.eventInstanceId === eid && f.round === 'semi');
   if (semis.length !== 2) return;
-  if (!semis.every(f => typeof f.scoreA === 'number' && typeof f.scoreB === 'number')) return;
+  if (!semis.every(f => f.scoreA != null && f.scoreA !== '' && f.scoreB != null && f.scoreB !== '')) return;
 
   const sf1 = semis.find(f => (f.sequence as number) === 1)!;
   const sf2 = semis.find(f => (f.sequence as number) === 2)!;
 
   const winner = (fx: RawFx) =>
-    (fx.scoreA as number) >= (fx.scoreB as number) ? fx.squadAId as string : fx.squadBId as string;
+    Number(fx.scoreA) >= Number(fx.scoreB) ? fx.squadAId as string : fx.squadBId as string;
   const loser  = (fx: RawFx) =>
-    (fx.scoreA as number) >= (fx.scoreB as number) ? fx.squadBId as string : fx.squadAId as string;
+    Number(fx.scoreA) >= Number(fx.scoreB) ? fx.squadBId as string : fx.squadAId as string;
 
   const final = allFx.find(f => f.id === `final-${eid}`);
   const third = allFx.find(f => f.id === `3rd4th-${eid}`);
