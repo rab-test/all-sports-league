@@ -6,6 +6,8 @@ import {
 } from '../../../lib/data';
 import type { Fixture } from '../../../lib/league';
 
+export const dynamic = 'force-dynamic';
+
 const GOLF_EVENT_POINTS = [8, 6, 4, 3, 2, 2, 0, 0];
 
 const SPORT_BADGE: Record<string, string> = {
@@ -25,15 +27,57 @@ function formatDate(iso: string): string {
   });
 }
 
-function computeStandings(squadIds: string[], fixtures: Fixture[]) {
-  const stats: Record<string, { p: number; w: number; d: number; l: number; pts: number }> = {};
-  for (const id of squadIds) stats[id] = { p: 0, w: 0, d: 0, l: 0, pts: 0 };
+function gdCol(sport: string): string | null {
+  if (sport === 'Fives Soccer')  return 'GD';
+  if (sport === 'Touch Rugby')   return 'TD';
+  if (sport === 'Padel')         return 'PD';
+  return null; // 6-a-side Cricket and others: no column
+}
 
-  console.log('[standings] squadIds:', squadIds);
-  console.log('[standings] fixtures:', fixtures.map(f => ({
-    id: f.id, scoreA: f.scoreA, scoreB: f.scoreB,
-    squadAId: f.squadAId, squadBId: f.squadBId,
-  })));
+function fmtGd(n: number): string {
+  return n > 0 ? `+${n}` : String(n);
+}
+
+type StandingRow = { id: string; p: number; w: number; d: number; l: number; pts: number; gd: number };
+
+function resolveGroup(group: StandingRow[], fixtures: Fixture[]): StandingRow[] {
+  const gids = new Set(group.map(r => r.id));
+  const h2h: Record<string, number> = {};
+  for (const r of group) h2h[r.id] = 0;
+
+  for (const fx of fixtures) {
+    if (!gids.has(fx.squadAId) || !gids.has(fx.squadBId)) continue;
+    if (fx.scoreA == null || fx.scoreB == null) continue;
+    const sa = Number(fx.scoreA);
+    const sb = Number(fx.scoreB);
+    if (isNaN(sa) || isNaN(sb)) continue;
+    if (sa > sb)      { h2h[fx.squadAId] += 2; }
+    else if (sb > sa) { h2h[fx.squadBId] += 2; }
+    else              { h2h[fx.squadAId]++; h2h[fx.squadBId]++; }
+  }
+
+  // Circular H2H or all-draws-among-group → fall back to overall GD
+  const vals = group.map(r => h2h[r.id]);
+  if (vals.every(v => v === vals[0])) {
+    return [...group].sort((a, b) => b.gd - a.gd);
+  }
+
+  const sorted = [...group].sort((a, b) => h2h[b.id] - h2h[a.id]);
+  const out: StandingRow[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i + 1;
+    while (j < sorted.length && h2h[sorted[j].id] === h2h[sorted[i].id]) j++;
+    const sub = sorted.slice(i, j);
+    out.push(...(sub.length === 1 ? sub : sub.sort((a, b) => b.gd - a.gd)));
+    i = j;
+  }
+  return out;
+}
+
+function computeStandings(squadIds: string[], fixtures: Fixture[]): StandingRow[] {
+  const stats: Record<string, { p: number; w: number; d: number; l: number; pts: number; gf: number; ga: number }> = {};
+  for (const id of squadIds) stats[id] = { p: 0, w: 0, d: 0, l: 0, pts: 0, gf: 0, ga: 0 };
 
   for (const fx of fixtures) {
     if (fx.scoreA == null || fx.scoreB == null) continue;
@@ -44,14 +88,28 @@ function computeStandings(squadIds: string[], fixtures: Fixture[]) {
     const b = stats[fx.squadBId];
     if (!a || !b) continue;
     a.p++; b.p++;
+    a.gf += sa; a.ga += sb;
+    b.gf += sb; b.ga += sa;
     if (sa > sb)      { a.w++; a.pts += 2; b.l++; }
     else if (sb > sa) { b.w++; b.pts += 2; a.l++; }
     else              { a.d++; a.pts += 1; b.d++; b.pts += 1; }
   }
 
-  return Object.entries(stats)
-    .map(([id, s]) => ({ id, ...s }))
-    .sort((a, b) => b.pts - a.pts || b.w - a.w);
+  const rows: StandingRow[] = Object.entries(stats)
+    .map(([id, s]) => ({ id, p: s.p, w: s.w, d: s.d, l: s.l, pts: s.pts, gd: s.gf - s.ga }));
+
+  rows.sort((a, b) => b.pts - a.pts);
+
+  const result: StandingRow[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    let j = i + 1;
+    while (j < rows.length && rows[j].pts === rows[i].pts) j++;
+    const group = rows.slice(i, j);
+    result.push(...(group.length === 1 ? group : resolveGroup(group, fixtures)));
+    i = j;
+  }
+  return result;
 }
 
 function FixtureRow({
@@ -200,6 +258,7 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                     pool.squadIds,
                     poolFixtures.filter(f => f.poolId === pool.id),
                   );
+                  const diffLabel = gdCol(instance.sport);
                   return (
                     <div key={pool.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
                       <div className="bg-navy px-4 py-3">
@@ -215,6 +274,9 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                             <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">W</th>
                             <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">D</th>
                             <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">L</th>
+                            {diffLabel && (
+                              <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">{diffLabel}</th>
+                            )}
                             <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-accent">Pts</th>
                           </tr>
                         </thead>
@@ -231,6 +293,9 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                               <td className="px-2 py-2.5 text-center text-muted">{row.w}</td>
                               <td className="px-2 py-2.5 text-center text-muted">{row.d}</td>
                               <td className="px-2 py-2.5 text-center text-muted">{row.l}</td>
+                              {diffLabel && (
+                                <td className="px-2 py-2.5 text-center text-muted">{fmtGd(row.gd)}</td>
+                              )}
                               <td className="px-2 py-2.5 text-center font-black text-accent">{row.pts}</td>
                             </tr>
                           ))}

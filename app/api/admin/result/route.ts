@@ -3,33 +3,16 @@ import { fetchTable, updateRecord } from '../../../../lib/airtable';
 import { loadPools } from '../../../../lib/data';
 
 type RawFx = Record<string, unknown> & { _recordId: string };
-
-function h2hPts(idA: string, idB: string, fixtures: RawFx[]): number {
-  let pA = 0, pB = 0;
-  for (const fx of fixtures) {
-    const fA = fx.squadAId as string;
-    const fB = fx.squadBId as string;
-    if ((fA !== idA || fB !== idB) && (fA !== idB || fB !== idA)) continue;
-    const sA = typeof fx.scoreA === 'number' ? fx.scoreA : undefined;
-    const sB = typeof fx.scoreB === 'number' ? fx.scoreB : undefined;
-    if (sA === undefined || sB === undefined) continue;
-    if (fA === idA) {
-      if (sA > sB) pA += 2; else if (sB > sA) pB += 2; else { pA++; pB++; }
-    } else {
-      if (sB > sA) pA += 2; else if (sA > sB) pB += 2; else { pA++; pB++; }
-    }
-  }
-  return pA - pB; // positive = A leads H2H
-}
+type StRow = { id: string; pts: number; gd: number };
 
 function poolStandings(squadIds: string[], fixtures: RawFx[]) {
   const stats: Record<string, { pts: number; gf: number; ga: number }> = {};
   for (const id of squadIds) stats[id] = { pts: 0, gf: 0, ga: 0 };
 
   for (const fx of fixtures) {
-    const sA = typeof fx.scoreA === 'number' ? fx.scoreA : undefined;
-    const sB = typeof fx.scoreB === 'number' ? fx.scoreB : undefined;
-    if (sA === undefined || sB === undefined) continue;
+    const sA = fx.scoreA != null ? Number(fx.scoreA) : NaN;
+    const sB = fx.scoreB != null ? Number(fx.scoreB) : NaN;
+    if (isNaN(sA) || isNaN(sB)) continue;
     const a = stats[fx.squadAId as string];
     const b = stats[fx.squadBId as string];
     if (!a || !b) continue;
@@ -40,14 +23,59 @@ function poolStandings(squadIds: string[], fixtures: RawFx[]) {
     else              { a.pts++; b.pts++; }
   }
 
-  return Object.entries(stats)
-    .map(([id, s]) => ({ id, ...s, gd: s.gf - s.ga }))
-    .sort((a, b) => {
-      if (a.pts !== b.pts) return b.pts - a.pts;
-      const h2h = h2hPts(a.id, b.id, fixtures);
-      if (h2h !== 0) return -h2h; // negative = a beat b = a sorts first
-      return b.gd - a.gd;
-    });
+  const rows: StRow[] = Object.entries(stats).map(([id, s]) => ({ id, ...s, gd: s.gf - s.ga }));
+  rows.sort((a, b) => b.pts - a.pts);
+  return applyTiebreakers(rows, fixtures);
+}
+
+function applyTiebreakers(rows: StRow[], fixtures: RawFx[]): StRow[] {
+  const result: StRow[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    let j = i + 1;
+    while (j < rows.length && rows[j].pts === rows[i].pts) j++;
+    const group = rows.slice(i, j);
+    result.push(...(group.length === 1 ? group : resolveGroup(group, fixtures)));
+    i = j;
+  }
+  return result;
+}
+
+function resolveGroup(group: StRow[], fixtures: RawFx[]): StRow[] {
+  const gids = new Set(group.map(r => r.id));
+  const h2h: Record<string, number> = {};
+  for (const r of group) h2h[r.id] = 0;
+
+  for (const fx of fixtures) {
+    const idA = fx.squadAId as string;
+    const idB = fx.squadBId as string;
+    if (!gids.has(idA) || !gids.has(idB)) continue;
+    const sa = fx.scoreA != null ? Number(fx.scoreA) : NaN;
+    const sb = fx.scoreB != null ? Number(fx.scoreB) : NaN;
+    if (isNaN(sa) || isNaN(sb)) continue;
+    if (sa > sb)      { h2h[idA] += 2; }
+    else if (sb > sa) { h2h[idB] += 2; }
+    else              { h2h[idA]++; h2h[idB]++; }
+  }
+
+  // If all H2H pts equal (circular / all draws), fall back to GD
+  const vals = group.map(r => h2h[r.id]);
+  if (vals.every(v => v === vals[0])) {
+    return [...group].sort((a, b) => b.gd - a.gd);
+  }
+
+  // H2H can separate at least some — sort by H2H, then GD within sub-ties
+  const sorted = [...group].sort((a, b) => h2h[b.id] - h2h[a.id]);
+  const out: StRow[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i + 1;
+    while (j < sorted.length && h2h[sorted[j].id] === h2h[sorted[i].id]) j++;
+    const sub = sorted.slice(i, j);
+    out.push(...(sub.length === 1 ? sub : sub.sort((a, b) => b.gd - a.gd)));
+    i = j;
+  }
+  return out;
 }
 
 async function maybeUpdateSemis(eid: string, allFx: RawFx[]) {

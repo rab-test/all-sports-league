@@ -208,14 +208,18 @@ export default function AdminPage() {
   async function saveScore(fxId: string) {
     const inp = scoreInputs[fxId];
     if (!inp || inp.a === '' || inp.b === '') return;
+    const { a, b } = inp; // capture before async
     setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fixtureId: fxId, scoreA: Number(inp.a), scoreB: Number(inp.b) }),
+        body: JSON.stringify({ fixtureId: fxId, scoreA: Number(a), scoreB: Number(b) }),
       });
       await fetchData();
+      // Restore the typed values — fetchData/initInputs may overwrite them if
+      // Airtable hasn't propagated yet or the field comes back in an unexpected shape
+      setScoreInputs(prev => ({ ...prev, [fxId]: { a, b } }));
       markSaved(fxId);
     } finally {
       setSavingFx(null);
@@ -226,6 +230,7 @@ export default function AdminPage() {
     const inp = padelInputs[fxId];
     if (!inp) return;
     if ([inp.p1a, inp.p1b, inp.p2a, inp.p2b, inp.p3a, inp.p3b].some(v => v === '')) return;
+    const savedInp = { ...inp }; // capture before async
     setSavingFx(fxId);
     try {
       await fetch('/api/admin/result', {
@@ -239,6 +244,7 @@ export default function AdminPage() {
         }),
       });
       await fetchData();
+      setPadelInputs(prev => ({ ...prev, [fxId]: savedInp }));
       markSaved(fxId);
     } finally {
       setSavingFx(null);
