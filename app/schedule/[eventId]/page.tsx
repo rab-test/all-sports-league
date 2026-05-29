@@ -323,7 +323,12 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                 {instancePools.map(pool => {
                   const pf = poolFixtures
                     .filter(f => f.poolId === pool.id)
-                    .sort((a, b) => a.sequence - b.sequence);
+                    .sort((a, b) => {
+                      if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
+                      if (a.startTime) return -1;
+                      if (b.startTime) return 1;
+                      return a.sequence - b.sequence;
+                    });
                   return (
                     <div key={pool.id}>
                       <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">

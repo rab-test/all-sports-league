@@ -26,6 +26,7 @@ type StoredFixture = {
   pair1A?: number | null; pair1B?: number | null;
   pair2A?: number | null; pair2B?: number | null;
   pair3A?: number | null; pair3B?: number | null;
+  startTime?: string;
   sfOverride?: boolean;
 };
 
@@ -824,7 +825,12 @@ export default function AdminPage() {
                               {instancePools.map(pool => {
                                 const pf = poolFx
                                   .filter(f => f.poolId === pool.id)
-                                  .sort((a, b) => a.sequence - b.sequence);
+                                  .sort((a, b) => {
+                                    if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
+                                    if (a.startTime) return -1;
+                                    if (b.startTime) return 1;
+                                    return a.sequence - b.sequence;
+                                  });
                                 return (
                                   <div key={pool.id}>
                                     <p className="mb-2 text-xs font-semibold uppercase text-gray-400">Pool {pool.name}</p>
