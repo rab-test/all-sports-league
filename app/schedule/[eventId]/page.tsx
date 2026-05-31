@@ -116,11 +116,13 @@ function FixtureRow({
   fx,
   squadMap,
   label,
+  poolBadge,
   highlightFinal,
 }: {
   fx: Fixture;
   squadMap: Record<string, { name: string }>;
   label?: string;
+  poolBadge?: string;
   highlightFinal?: boolean;
 }) {
   const hasResult = fx.scoreA !== undefined && fx.scoreB !== undefined;
@@ -135,6 +137,11 @@ function FixtureRow({
       )}
       {label && (
         <span className="w-8 shrink-0 text-xs font-bold text-muted">{label}</span>
+      )}
+      {poolBadge && (
+        <span className="shrink-0 rounded bg-navy/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-navy">
+          {poolBadge}
+        </span>
       )}
       <span className={`flex-1 text-sm font-bold ${hasResult ? 'text-navy' : 'text-muted'}`}>
         {squadMap[fx.squadAId]?.name || 'TBD'}
@@ -318,38 +325,27 @@ export default async function EventInstancePage({ params }: { params: { eventId:
               <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
                 Fixtures not yet scheduled
               </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {instancePools.map(pool => {
-                  const pf = poolFixtures
-                    .filter(f => f.poolId === pool.id)
-                    .sort((a, b) => {
-                      if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
-                      if (a.startTime) return -1;
-                      if (b.startTime) return 1;
-                      return a.sequence - b.sequence;
-                    });
-                  return (
-                    <div key={pool.id}>
-                      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
-                        Pool {pool.name} Fixtures
-                      </p>
-                      {pf.length === 0 ? (
-                        <div className="rounded-xl border border-gray-200 bg-white p-4 text-center text-sm text-muted">
-                          Fixtures not yet scheduled
-                        </div>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          {pf.map(fx => (
-                            <FixtureRow key={fx.id} fx={fx} squadMap={squadMap} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            ) : (() => {
+              const poolNameMap = Object.fromEntries(instancePools.map(p => [p.id, `Pool ${p.name}`]));
+              const merged = [...poolFixtures].sort((a, b) => {
+                if (a.startTime && b.startTime) return a.startTime.localeCompare(b.startTime);
+                if (a.startTime) return -1;
+                if (b.startTime) return 1;
+                return a.sequence - b.sequence;
+              });
+              return (
+                <div className="flex flex-col gap-2">
+                  {merged.map(fx => (
+                    <FixtureRow
+                      key={fx.id}
+                      fx={fx}
+                      squadMap={squadMap}
+                      poolBadge={poolNameMap[fx.poolId ?? ''] ?? ''}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
           </section>
 
           {/* ── Knockout ── */}
