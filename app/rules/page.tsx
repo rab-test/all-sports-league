@@ -72,34 +72,18 @@ export default function RulesPage() {
         {/* Sports */}
         {[
           {
-            title: 'Padel',
-            borderClass: 'border-l-padel',
-            headerTextClass: 'text-padel',
+            title: 'Golf',
+            borderClass: 'border-l-golf',
+            headerTextClass: 'text-golf',
             rules: [
-              'Each squad fields 3 pairs against 3 opposition pairs',
-              'Each pair plays one set, 30-minute time limit',
-              'Squad wins the match if they win 2 or more pairs',
-              'Score difference tiebreaker: total games won minus total games lost across all 3 pairs',
-            ],
-          },
-          {
-            title: 'Touch Rugby',
-            borderClass: 'border-l-rugby',
-            headerTextClass: 'text-rugby',
-            rules: [
-              'Time-limited match, draws valid',
-              'Win = 2pts, Draw = 1pt, Loss = 0pts',
-              'Score difference: tries scored minus tries conceded',
-            ],
-          },
-          {
-            title: 'Soccer (5-a-side)',
-            borderClass: 'border-l-soccer',
-            headerTextClass: 'text-soccer',
-            rules: [
-              'Time-limited match, draws valid',
-              'Win = 2pts, Draw = 1pt, Loss = 0pts',
-              'Score difference: goals scored minus goals conceded',
+              'Each team fields 6 players split into 3 pairs',
+              'Format: Scramble — each pair plays one team ball, always hitting from the better shot',
+              'Continue selecting the preferred shot after every stroke until the ball is holed',
+              'No gimmes — every putt must be holed',
+              'Triple Bogey is the maximum on any hole',
+              'Each pair\'s total strokes make up their pair score',
+              'Add all 3 pair scores per team — lowest combined total wins',
+              'Results ranked lowest to highest',
             ],
           },
           {
@@ -107,21 +91,47 @@ export default function RulesPage() {
             borderClass: 'border-l-cricket',
             headerTextClass: 'text-cricket',
             rules: [
-              'Result entered manually (win or loss)',
-              'No score difference tracked',
-              'Tiebreakers resolved by admin override',
+              '6 players allowed on the field per team',
+              '2 super subs allowed: 1 batting sub (bat only, no bowl) and 1 bowling sub (bowl only, no bat)',
+              'Each team must provide 1 scorer and 1 umpire. The two teams that just played umpire the next game',
+              '5 overs per innings, max 1 over per player (excluding wicketkeeper)',
+              'Wicketkeeper must be nominated before the game and cannot change during the innings',
+              'Wides and no-balls = 4 runs (not re-bowled unless in the final 2 balls of the last over). If a wide goes for 4, that is 8 runs total',
+              'All leg-side deliveries are wides; off-side line is the second line',
+              'No-balls: front-foot, full toss above hip height, or anything over the head. No-balls result in a free hit',
+              'Batsman retires on 30 runs (off the bat only — extras do not count). Retired batsman may return once all others are out',
+              'Last man standing format. No LBW. Batsman can be stumped off a wide but not off a no-ball',
+              'Innings bowled from one side only. Captains toss to decide bat/bowl first or which end to bowl from',
+              'Next 2 teams must toss during the innings break of the preceding match and be ready immediately when the previous game ends',
+              'Scoring: Win = 2pts, Tie = 1pt each, Loss = 0pts',
+              'Tiebreakers: 1) Head-to-head  2) Most runs scored  3) Fewest runs conceded  4) Coin toss',
             ],
           },
           {
-            title: 'Golf',
-            borderClass: 'border-l-golf',
-            headerTextClass: 'text-golf',
+            title: 'Fives Soccer',
+            borderClass: 'border-l-soccer',
+            headerTextClass: 'text-soccer',
             rules: [
-              'No pool stage or head-to-head matchups',
-              'All 8 teams play simultaneously, 18 holes',
-              'Format: 3 pairs per team playing better ball',
-              'Team score = sum of all 3 pair net scores, lowest total wins',
-              'Points: 1st=8, 2nd=6, 3rd=4, 4th=3, 5th=2, 6th=2, 7th=0, 8th=0',
+              'Standard rules, time-limited matches',
+            ],
+          },
+          {
+            title: 'Touch Rugby',
+            borderClass: 'border-l-rugby',
+            headerTextClass: 'text-rugby',
+            rules: [
+              'Standard rules, time-limited matches',
+            ],
+          },
+          {
+            title: 'Padel',
+            borderClass: 'border-l-padel',
+            headerTextClass: 'text-padel',
+            rules: [
+              'Standard rules',
+              'Each pair plays to win a set — squad vs squad result ends 3-0 or 2-1',
+              'If a set is tied, a tiebreak is played to 7 (win by 2)',
+              'Tiebreakers: 1) Head-to-head  2) Sets won',
             ],
           },
         ].map(sport => (
@@ -141,6 +151,22 @@ export default function RulesPage() {
             </ul>
           </section>
         ))}
+
+        {/* General League Rules */}
+        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-100 px-5 py-4">
+            <h2 className="text-sm font-black uppercase tracking-widest text-navy">General League Rules</h2>
+          </div>
+          <ul className="divide-y divide-gray-100 px-5">
+            {[
+              'Each squad of 12 is locked in before the first event. No substitutions or additions throughout the season.',
+              'If a team cannot field enough players, they forfeit their chance of progressing to the playoffs.',
+              'All played in good spirit.',
+            ].map((rule, i) => (
+              <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
+            ))}
+          </ul>
+        </section>
 
         {/* Finals Weekend */}
         <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">

@@ -51,19 +51,19 @@ export default async function HomePage() {
           priority
         />
         <h1 className="text-4xl font-black text-navy md:text-5xl">
-          Ultimate Sports League 2026
+          The ALL ROUNDERS SPORT LEAGUE
         </h1>
         <p className="mt-3 text-lg font-semibold text-accent">
-          Somerset West&apos;s premier multi-sport competition
+          Season 2
         </p>
 
         {/* Stats — four separate cards */}
         <div className="mx-auto mt-10 grid max-w-sm grid-cols-2 gap-3 sm:max-w-xl sm:grid-cols-4">
           {([
-            ['16',  'Teams'],
-            ['190', 'Players'],
+            ['192', 'Players'],
             ['5',   'Sports'],
-            ['7',   'Events'],
+            ['6',   'Weekends'],
+            ['1',   'Best All-Rounder'],
           ] as const).map(([num, label]) => (
             <div
               key={label}
