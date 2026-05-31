@@ -32,7 +32,7 @@ export default async function SchedulePage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-1 text-3xl font-black text-navy">2026 Schedule</h1>
-      <p className="mb-8 text-sm text-muted">Somerset West League — 7 events</p>
+      <p className="mb-8 text-sm text-muted">2026 Season — 7 Events</p>
 
       <ol className="flex flex-col gap-4">
         {sorted.map((day, index) => {

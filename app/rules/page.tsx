@@ -163,8 +163,6 @@ export default function RulesPage() {
           <AccordionSection
             key={sport.title}
             title={sport.title}
-            headerTextClass={sport.headerTextClass}
-            sectionClass={`border-l-4 ${sport.borderClass}`}
           >
             <ul className="divide-y divide-gray-100 px-5">
               {sport.rules.map((rule, i) => (

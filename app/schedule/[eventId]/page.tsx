@@ -279,15 +279,15 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-gray-100 bg-gray-50">
-                            <th className="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted">Squad</th>
-                            <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">P</th>
-                            <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">W</th>
-                            <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">D</th>
-                            <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">L</th>
+                            <th className="w-full px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted">Squad</th>
+                            <th className="w-6 px-1 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">P</th>
+                            <th className="w-6 px-1 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">W</th>
+                            <th className="w-6 px-1 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">D</th>
+                            <th className="w-6 px-1 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">L</th>
                             {diffLabel && (
-                              <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">{diffLabel}</th>
+                              <th className="w-10 px-1 py-2 text-center text-xs font-bold uppercase tracking-wider text-muted">{diffLabel}</th>
                             )}
-                            <th className="px-2 py-2 text-center text-xs font-bold uppercase tracking-wider text-accent">Pts</th>
+                            <th className="w-8 px-1 pr-3 py-2 text-center text-xs font-bold uppercase tracking-wider text-accent">Pts</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -299,14 +299,14 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                               <td className="px-4 py-2.5 font-semibold text-navy">
                                 {squadMap[row.id]?.name ?? row.id}
                               </td>
-                              <td className="px-2 py-2.5 text-center text-muted">{row.p}</td>
-                              <td className="px-2 py-2.5 text-center text-muted">{row.w}</td>
-                              <td className="px-2 py-2.5 text-center text-muted">{row.d}</td>
-                              <td className="px-2 py-2.5 text-center text-muted">{row.l}</td>
+                              <td className="px-1 py-2.5 text-center text-muted">{row.p}</td>
+                              <td className="px-1 py-2.5 text-center text-muted">{row.w}</td>
+                              <td className="px-1 py-2.5 text-center text-muted">{row.d}</td>
+                              <td className="px-1 py-2.5 text-center text-muted">{row.l}</td>
                               {diffLabel && (
-                                <td className="px-2 py-2.5 text-center text-muted">{fmtGd(row.gd)}</td>
+                                <td className="px-1 py-2.5 text-center text-muted">{fmtGd(row.gd)}</td>
                               )}
-                              <td className="px-2 py-2.5 text-center font-black text-accent">{row.pts}</td>
+                              <td className="px-1 pr-3 py-2.5 text-center font-black text-accent">{row.pts}</td>
                             </tr>
                           ))}
                         </tbody>

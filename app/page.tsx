@@ -67,10 +67,10 @@ export default async function HomePage() {
           ] as const).map(([num, label]) => (
             <div
               key={label}
-              className="flex flex-col items-center rounded-xl border border-gray-200 bg-white px-4 py-5 shadow-sm"
+              className="flex flex-col items-center rounded-xl bg-navy px-4 py-5 shadow-sm"
             >
               <span className="text-3xl font-black tabular-nums text-accent">{num}</span>
-              <span className="mt-1 text-xs font-bold uppercase tracking-widest text-navy">{label}</span>
+              <span className="mt-1 text-xs font-bold uppercase tracking-widest text-white">{label}</span>
             </div>
           ))}
         </div>
