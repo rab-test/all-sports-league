@@ -1,16 +1,56 @@
+'use client';
+
+import { useState } from 'react';
+
+function AccordionSection({
+  title,
+  subtitle,
+  headerTextClass = 'text-navy',
+  sectionClass = '',
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  headerTextClass?: string;
+  sectionClass?: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${sectionClass}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex w-full items-center justify-between px-5 py-4 text-left"
+      >
+        <div>
+          <h2 className={`text-sm font-black uppercase tracking-widest ${headerTextClass}`}>{title}</h2>
+          {subtitle && <p className="mt-1 text-xs text-muted">{subtitle}</p>}
+        </div>
+        <svg
+          className={`h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && <div className="border-t border-gray-100">{children}</div>}
+    </section>
+  );
+}
+
 export default function RulesPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-1 text-3xl font-black text-navy">Rules</h1>
-      <p className="mb-8 text-sm text-muted">2026 Season — Somerset West League</p>
+      <p className="mb-8 text-sm text-muted">2026 Season</p>
 
       <div className="flex flex-col gap-5">
 
-        {/* Overview */}
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black uppercase tracking-widest text-navy">Overview</h2>
-          </div>
+        <AccordionSection title="Overview">
           <div className="px-5 py-4">
             <p className="text-sm text-navy/80">
               Two parallel leagues: Premier and Challenger. Each league has 8 teams split into 2 pools of 4.
@@ -18,14 +58,9 @@ export default function RulesPage() {
               League standings accumulate points across all events and determine Finals Weekend seeding.
             </p>
           </div>
-        </section>
+        </AccordionSection>
 
-        {/* Pool & Knockout Structure */}
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black uppercase tracking-widest text-navy">Pool & Knockout Structure</h2>
-            <p className="mt-1 text-xs text-muted">All sports except Golf</p>
-          </div>
+        <AccordionSection title="Pool & Knockout Structure" subtitle="All sports except Golf">
           <ul className="divide-y divide-gray-100 px-5">
             {[
               '8 teams per league, split into Pool A and Pool B (4 teams each)',
@@ -39,14 +74,9 @@ export default function RulesPage() {
               <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
             ))}
           </ul>
-        </section>
+        </AccordionSection>
 
-        {/* Event Points */}
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black uppercase tracking-widest text-navy">Event Points</h2>
-            <p className="mt-1 text-xs text-muted">League standings</p>
-          </div>
+        <AccordionSection title="Event Points" subtitle="League standings">
           <div className="px-5 py-4">
             <div className="mb-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
               {[
@@ -67,9 +97,8 @@ export default function RulesPage() {
               Pool match points (2/1/0) are used only to rank teams within the pool and do not carry into league standings.
             </p>
           </div>
-        </section>
+        </AccordionSection>
 
-        {/* Sports */}
         {[
           {
             title: 'Golf',
@@ -81,7 +110,7 @@ export default function RulesPage() {
               'Continue selecting the preferred shot after every stroke until the ball is holed',
               'No gimmes — every putt must be holed',
               'Triple Bogey is the maximum on any hole',
-              'Each pair\'s total strokes make up their pair score',
+              "Each pair's total strokes make up their pair score",
               'Add all 3 pair scores per team — lowest combined total wins',
               'Results ranked lowest to highest',
             ],
@@ -111,17 +140,13 @@ export default function RulesPage() {
             title: 'Fives Soccer',
             borderClass: 'border-l-soccer',
             headerTextClass: 'text-soccer',
-            rules: [
-              'Standard rules, time-limited matches',
-            ],
+            rules: ['Standard rules, time-limited matches'],
           },
           {
             title: 'Touch Rugby',
             borderClass: 'border-l-rugby',
             headerTextClass: 'text-rugby',
-            rules: [
-              'Standard rules, time-limited matches',
-            ],
+            rules: ['Standard rules, time-limited matches'],
           },
           {
             title: 'Padel',
@@ -135,28 +160,21 @@ export default function RulesPage() {
             ],
           },
         ].map(sport => (
-          <section
+          <AccordionSection
             key={sport.title}
-            className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm border-l-4 ${sport.borderClass}`}
+            title={sport.title}
+            headerTextClass={sport.headerTextClass}
+            sectionClass={`border-l-4 ${sport.borderClass}`}
           >
-            <div className="border-b border-gray-100 px-5 py-4">
-              <h2 className={`text-sm font-black uppercase tracking-widest ${sport.headerTextClass}`}>
-                {sport.title}
-              </h2>
-            </div>
             <ul className="divide-y divide-gray-100 px-5">
               {sport.rules.map((rule, i) => (
                 <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
               ))}
             </ul>
-          </section>
+          </AccordionSection>
         ))}
 
-        {/* General League Rules */}
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black uppercase tracking-widest text-navy">General League Rules</h2>
-          </div>
+        <AccordionSection title="General League Rules">
           <ul className="divide-y divide-gray-100 px-5">
             {[
               'Each squad of 12 is locked in before the first event. No substitutions or additions throughout the season.',
@@ -166,13 +184,9 @@ export default function RulesPage() {
               <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
             ))}
           </ul>
-        </section>
+        </AccordionSection>
 
-        {/* Finals Weekend */}
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-100 px-5 py-4">
-            <h2 className="text-sm font-black uppercase tracking-widest text-navy">Finals Weekend</h2>
-          </div>
+        <AccordionSection title="Finals Weekend">
           <ul className="divide-y divide-gray-100 px-5">
             {[
               'Based on final league standings',
@@ -184,7 +198,7 @@ export default function RulesPage() {
               <li key={i} className="py-3 text-sm text-navy/80">{rule}</li>
             ))}
           </ul>
-        </section>
+        </AccordionSection>
 
       </div>
 

@@ -51,10 +51,10 @@ export default async function HomePage() {
           priority
         />
         <h1 className="text-4xl font-black text-navy md:text-5xl">
-          The ALL ROUNDERS SPORT LEAGUE
+          Ultimate Sports League
         </h1>
         <p className="mt-3 text-lg font-semibold text-accent">
-          Season 2
+          Season 2 — All Rounders Sport League
         </p>
 
         {/* Stats — four separate cards */}
@@ -63,7 +63,7 @@ export default async function HomePage() {
             ['192', 'Players'],
             ['5',   'Sports'],
             ['6',   'Weekends'],
-            ['1',   'Best All-Rounder'],
+            ['1',   'Champion'],
           ] as const).map(([num, label]) => (
             <div
               key={label}
