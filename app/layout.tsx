@@ -5,6 +5,9 @@ import { Header } from '../components/layout/Header';
 export const metadata: Metadata = {
   title: 'Ultimate Sports League',
   description: 'Season 2026 community sports league schedule, standings and admin tools.',
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
