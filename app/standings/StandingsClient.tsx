@@ -3,18 +3,24 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import type { Division, Squad } from '../../lib/league';
+import type { SquadStanding } from './page';
 
 export default function StandingsClient({
   divisions,
   squads,
+  standings,
 }: {
   divisions: Division[];
   squads: Squad[];
+  standings: Record<string, SquadStanding>;
 }) {
   const premier = divisions.find(d => d.name.toLowerCase().includes('premier'));
   const [selectedId, setSelectedId] = useState(premier?.id ?? divisions[0]?.id ?? '');
 
-  const divisionSquads = squads.filter(s => s.divisionId === selectedId);
+  const divisionSquads = squads
+    .filter(s => s.divisionId === selectedId)
+    .map(s => ({ ...s, ...(standings[s.id] ?? { played: 0, points: 0 }) }))
+    .sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
 
   return (
     <>
@@ -68,8 +74,8 @@ export default function StandingsClient({
                     {squad.name}
                   </Link>
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-muted">0</td>
-                <td className="px-4 py-3 pr-5 text-right font-black tabular-nums text-accent">0</td>
+                <td className="px-4 py-3 text-right tabular-nums text-muted">{squad.played}</td>
+                <td className="px-4 py-3 pr-5 text-right font-black tabular-nums text-accent">{squad.points}</td>
               </tr>
             ))}
           </tbody>

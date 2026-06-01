@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { loadEventInstances, loadEventDays, loadDivisions, loadPools, loadSquads, loadFixtures, loadGolfScores } from '../../../../lib/data';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   const [instances, eventDays, divisions, pools, squads, fixtures, golfScores] = await Promise.all([
     loadEventInstances(),

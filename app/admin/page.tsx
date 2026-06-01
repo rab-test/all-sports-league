@@ -204,7 +204,7 @@ export default function AdminPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/data');
+      const res = await fetch('/api/admin/data', { cache: 'no-store' });
       const d: AdminData = await res.json();
       setData(d);
       initInputs(d);
@@ -493,7 +493,7 @@ export default function AdminPage() {
                     <div key={n} className="mb-2 flex items-center gap-2">
                       <span className="w-12 text-xs text-gray-400">Pair {n}</span>
                       <input
-                        type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+                        type="number" min="0" placeholder="0" disabled={isLocked}
                         value={pi[ak]}
                         onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [ak]: e.target.value } }))}
                         onBlur={() => savePadelScore(fx.id)}
@@ -501,7 +501,7 @@ export default function AdminPage() {
                       />
                       <span className="text-xs text-gray-300">–</span>
                       <input
-                        type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+                        type="number" min="0" placeholder="0" disabled={isLocked}
                         value={pi[bk]}
                         onChange={e => setPadelInputs(p => ({ ...p, [fx.id]: { ...(p[fx.id] ?? pi), [bk]: e.target.value } }))}
                         onBlur={() => savePadelScore(fx.id)}
@@ -527,7 +527,7 @@ export default function AdminPage() {
           <span className="w-10 shrink-0 text-xs font-bold text-gray-400">{label}</span>
           <span className={`flex-1 min-w-0 truncate text-sm ${clsA}`}>{nameA || 'TBD'}</span>
           <input
-            type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+            type="number" min="0" placeholder="0" disabled={isLocked}
             value={inp.a}
             onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], a: e.target.value } }))}
             onBlur={() => saveScore(fx.id)}
@@ -535,7 +535,7 @@ export default function AdminPage() {
           />
           <span className="shrink-0 text-xs text-gray-300">–</span>
           <input
-            type="number" min="0" placeholder="0" disabled={isLocked || !hasBoth}
+            type="number" min="0" placeholder="0" disabled={isLocked}
             value={inp.b}
             onChange={e => setScoreInputs(p => ({ ...p, [fx.id]: { ...p[fx.id], b: e.target.value } }))}
             onBlur={() => saveScore(fx.id)}

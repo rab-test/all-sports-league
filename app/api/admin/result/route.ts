@@ -108,19 +108,23 @@ async function maybeUpdateFinal(eid: string, allFx: RawFx[]) {
   if (semis.length !== 2) return;
   if (!semis.every(f => f.scoreA != null && f.scoreA !== '' && f.scoreB != null && f.scoreB !== '')) return;
 
-  const sf1 = semis.find(f => (f.sequence as number) === 1)!;
-  const sf2 = semis.find(f => (f.sequence as number) === 2)!;
+  const sf1 = semis.find(f => Number(f.sequence) === 1);
+  const sf2 = semis.find(f => Number(f.sequence) === 2);
+  if (!sf1 || !sf2) return;
 
-  const winner = (fx: RawFx) =>
-    Number(fx.scoreA) >= Number(fx.scoreB) ? fx.squadAId as string : fx.squadBId as string;
-  const loser  = (fx: RawFx) =>
-    Number(fx.scoreA) >= Number(fx.scoreB) ? fx.squadBId as string : fx.squadAId as string;
+  const sA1 = Number(sf1.scoreA), sB1 = Number(sf1.scoreB);
+  const sA2 = Number(sf2.scoreA), sB2 = Number(sf2.scoreB);
+
+  const sf1Winner = sA1 > sB1 ? sf1.squadAId as string : sf1.squadBId as string;
+  const sf1Loser  = sA1 > sB1 ? sf1.squadBId as string : sf1.squadAId as string;
+  const sf2Winner = sA2 > sB2 ? sf2.squadAId as string : sf2.squadBId as string;
+  const sf2Loser  = sA2 > sB2 ? sf2.squadBId as string : sf2.squadAId as string;
 
   const final = allFx.find(f => f.id === `final-${eid}`);
   const third = allFx.find(f => f.id === `3rd4th-${eid}`);
   await Promise.all([
-    final ? updateRecord('Fixtures', final._recordId, { squadAId: winner(sf1), squadBId: winner(sf2) }) : null,
-    third ? updateRecord('Fixtures', third._recordId, { squadAId: loser(sf1),  squadBId: loser(sf2)  }) : null,
+    final ? updateRecord('Fixtures', final._recordId, { squadAId: sf1Winner, squadBId: sf2Winner }) : null,
+    third ? updateRecord('Fixtures', third._recordId, { squadAId: sf1Loser,  squadBId: sf2Loser  }) : null,
   ]);
 }
 
