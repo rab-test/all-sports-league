@@ -146,7 +146,12 @@ export default function RulesPage() {
             title: 'Touch Rugby',
             borderClass: 'border-l-rugby',
             headerTextClass: 'text-rugby',
-            rules: ['Standard rules, time-limited matches'],
+            rules: [
+              '20 minute games: 10 minutes per side with a 5 minute half time',
+              '5 players on the field in the first half, 4 players in the second half with rolling subs',
+              '3 touch to turn over possession',
+              'Standard touch rugby rules apply',
+            ],
           },
           {
             title: 'Padel',

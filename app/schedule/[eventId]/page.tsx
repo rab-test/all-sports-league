@@ -374,23 +374,23 @@ export default async function EventInstancePage({ params }: { params: { eventId:
                         </div>
                       )}
 
-                      {finals.length > 0 && (
-                        <div>
-                          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">Final</p>
-                          <div className="flex flex-col gap-2">
-                            {finals.map(fx => (
-                              <FixtureRow key={fx.id} fx={fx} squadMap={squadMap} highlightFinal />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       {thirdFourth.length > 0 && (
                         <div>
                           <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">3rd / 4th Playoff</p>
                           <div className="flex flex-col gap-2">
                             {thirdFourth.map(fx => (
                               <FixtureRow key={fx.id} fx={fx} squadMap={squadMap} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {finals.length > 0 && (
+                        <div>
+                          <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">Final</p>
+                          <div className="flex flex-col gap-2">
+                            {finals.map(fx => (
+                              <FixtureRow key={fx.id} fx={fx} squadMap={squadMap} highlightFinal />
                             ))}
                           </div>
                         </div>
