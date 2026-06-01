@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import type { Division, Squad } from '../../lib/league';
-import type { SquadStanding } from './page';
+import type { SquadStanding } from '../../lib/standings';
 
 export default function StandingsClient({
   divisions,
