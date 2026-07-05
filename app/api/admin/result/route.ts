@@ -78,18 +78,20 @@ function resolveGroup(group: StRow[], fixtures: RawFx[]): StRow[] {
   return out;
 }
 
-async function maybeUpdateSemis(eid: string, allFx: RawFx[]) {
+// Returns an updated copy of allFx reflecting the new SF squad assignments,
+// so the caller can immediately pass it to maybeUpdateFinal.
+async function maybeUpdateSemis(eid: string, allFx: RawFx[]): Promise<RawFx[]> {
   const poolFx = allFx.filter(f => f.eventInstanceId === eid && f.round === 'pool');
-  if (poolFx.length === 0) return;
+  if (poolFx.length === 0) return allFx;
 
   const pools = await loadPools();
   const poolA = pools.find(p => p.eventInstanceId === eid && p.name === 'A');
   const poolB = pools.find(p => p.eventInstanceId === eid && p.name === 'B');
-  if (!poolA || !poolB) return;
+  if (!poolA || !poolB) return allFx;
 
   const pAStand = poolStandings(poolA.squadIds, poolFx.filter(f => f.poolId === poolA.id));
   const pBStand = poolStandings(poolB.squadIds, poolFx.filter(f => f.poolId === poolB.id));
-  if (pAStand.length < 2 || pBStand.length < 2) return;
+  if (pAStand.length < 2 || pBStand.length < 2) return allFx;
 
   const sf1 = allFx.find(f => f.id === `sf1-${eid}`);
   const sf2 = allFx.find(f => f.id === `sf2-${eid}`);
@@ -101,6 +103,15 @@ async function maybeUpdateSemis(eid: string, allFx: RawFx[]) {
       ? updateRecord('Fixtures', sf2._recordId, { squadAId: pBStand[0].id, squadBId: pAStand[1].id })
       : null,
   ]);
+
+  // Reflect new SF squad IDs in-memory so maybeUpdateFinal sees them
+  return allFx.map(f => {
+    if (f.id === `sf1-${eid}` && sf1 && !sf1.sfOverride)
+      return { ...f, squadAId: pAStand[0].id, squadBId: pBStand[1].id };
+    if (f.id === `sf2-${eid}` && sf2 && !sf2.sfOverride)
+      return { ...f, squadAId: pBStand[0].id, squadBId: pAStand[1].id };
+    return f;
+  });
 }
 
 async function maybeUpdateFinal(eid: string, allFx: RawFx[]) {
@@ -166,7 +177,11 @@ export async function POST(request: Request) {
   const round   = fixture.round as string;
   const eid     = fixture.eventInstanceId as string;
 
-  if (round === 'pool') await maybeUpdateSemis(eid, updated);
+  if (round === 'pool') {
+    // Update SF team assignments from new pool standings, then cascade to Final/3rd-4th
+    const updatedWithSemis = await maybeUpdateSemis(eid, updated);
+    await maybeUpdateFinal(eid, updatedWithSemis);
+  }
   if (round === 'semi') await maybeUpdateFinal(eid, updated);
 
   return NextResponse.json({ success: true });

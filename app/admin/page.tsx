@@ -5,6 +5,9 @@ import { useState, useEffect, useCallback } from 'react';
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const CORRECT_PIN = '2374';
+const CAPTAIN_PIN = '7823';
+// event-instance-3 and event-instance-4 are the two 11 July 2026 events
+const CAPTAIN_EVENT_IDS = new Set(['event-instance-3', 'event-instance-4']);
 
 const SPORT_BADGE: Record<string, string> = {
   'Padel':            'bg-padel text-white',
@@ -103,6 +106,7 @@ export default function AdminPage() {
   const [pin,      setPin]      = useState('');
   const [unlocked, setUnlocked] = useState(false);
   const [pinError, setPinError] = useState(false);
+  const [mode,     setMode]     = useState<'admin' | 'captain'>('admin');
 
   const [data,    setData]    = useState<AdminData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -218,7 +222,8 @@ export default function AdminPage() {
   // ── Actions ───────────────────────────────────────────────────────────────
 
   function handlePin() {
-    if (pin === CORRECT_PIN) { setUnlocked(true); setPinError(false); }
+    if (pin === CORRECT_PIN)   { setMode('admin');   setUnlocked(true); setPinError(false); }
+    else if (pin === CAPTAIN_PIN) { setMode('captain'); setUnlocked(true); setPinError(false); }
     else { setPinError(true); setPin(''); }
   }
 
@@ -550,10 +555,11 @@ export default function AdminPage() {
       );
     };
 
+    const isCaptain = mode === 'captain';
     return (
       <div key={fx.id} className="rounded-lg border border-gray-100 overflow-hidden">
         {scoreRow(
-          isSemi ? (
+          isSemi && !isCaptain ? (
             <button
               onClick={() => toggleSfOver(fx.id)}
               className="ml-1 shrink-0 text-xs text-gray-400 underline underline-offset-2 hover:text-navy transition-colors"
@@ -564,7 +570,7 @@ export default function AdminPage() {
         )}
 
         {/* SF Override panel */}
-        {isSemi && sfoOpen && sfo && (
+        {isSemi && !isCaptain && sfoOpen && sfo && (
           <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
             <label className="mb-3 flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-600">
               <input
@@ -657,8 +663,21 @@ export default function AdminPage() {
 
   if (!data) return null;
 
-  const sorted   = [...data.instances].sort((a, b) => a.eventDay.date.localeCompare(b.eventDay.date));
-  const squadMap = Object.fromEntries(data.squads.map(s => [s.id, s]));
+  const isCaptain = mode === 'captain';
+
+  // Filter to the captain's two events when in captain mode
+  const sorted = [...data.instances]
+    .filter(i => !isCaptain || CAPTAIN_EVENT_IDS.has(i.id))
+    .sort((a, b) => a.eventDay.date.localeCompare(b.eventDay.date));
+
+  // Map squads by both custom id AND Airtable _recordId so knockout
+  // squadAId values resolve regardless of which format Airtable returns.
+  const squadMap: Record<string, Squad> = {};
+  for (const s of data.squads) {
+    if (s.id) squadMap[s.id] = s;
+    const rec = (s as Squad & { _recordId?: string })._recordId;
+    if (rec) squadMap[rec] = s;
+  }
 
   // ── Main panel ────────────────────────────────────────────────────────────
 
@@ -668,7 +687,9 @@ export default function AdminPage() {
       {/* Header */}
       <div className="bg-navy">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
-          <h1 className="text-base font-bold text-white">Ultimate Sports League — Admin</h1>
+          <h1 className="text-base font-bold text-white">
+            {isCaptain ? 'Result Entry' : 'Ultimate Sports League — Admin'}
+          </h1>
           <div className="flex items-center gap-4">
             {loading && <span className="text-xs text-slate-400">Saving…</span>}
             <button
@@ -774,8 +795,8 @@ export default function AdminPage() {
                     ) : (
                       /* ── Preset A ── */
                       <>
-                        {/* SECTION 1 — DRAW */}
-                        <div className="border-b border-gray-100 px-5 py-4">
+                        {/* SECTION 1 — DRAW (admin only) */}
+                        {!isCaptain && <div className="border-b border-gray-100 px-5 py-4">
                           <div className="mb-3 flex items-center justify-between">
                             <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Draw</p>
                             {instancePools.length > 0 && (
@@ -815,7 +836,7 @@ export default function AdminPage() {
                               ))}
                             </div>
                           )}
-                        </div>
+                        </div>}
 
                         {/* SECTION 2 — POOL RESULTS */}
                         {instancePools.length > 0 && (
@@ -858,8 +879,8 @@ export default function AdminPage() {
                       </>
                     )}
 
-                    {/* LOCK / UNLOCK */}
-                    <div className="px-5 py-4">
+                    {/* LOCK / UNLOCK (admin only) */}
+                    {!isCaptain && <div className="px-5 py-4">
                       <button
                         disabled={lockingEv === instance.id}
                         onClick={() => toggleLock(instance.id, !isLocked)}
@@ -871,7 +892,7 @@ export default function AdminPage() {
                       >
                         {lockingEv === instance.id ? 'Saving…' : isLocked ? 'Unlock Event' : 'Lock Event'}
                       </button>
-                    </div>
+                    </div>}
 
                   </div>
                 )}
