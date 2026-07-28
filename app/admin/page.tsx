@@ -6,8 +6,8 @@ import { useState, useEffect, useCallback } from 'react';
 
 const CORRECT_PIN = '2374';
 const CAPTAIN_PIN = '7823';
-// event-instance-3 and event-instance-4 are the two 11 July 2026 events
-const CAPTAIN_EVENT_IDS = new Set(['event-instance-3', 'event-instance-4']);
+// event-instance-5 and event-instance-6 are the two 1 August 2026 Fives Soccer events
+const CAPTAIN_EVENT_IDS = new Set(['event-instance-5', 'event-instance-6']);
 
 const SPORT_BADGE: Record<string, string> = {
   'Padel':            'bg-padel text-white',
