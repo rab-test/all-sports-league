@@ -1,4 +1,5 @@
 import type { Squad, EventInstance, Pool, Fixture, GolfScore } from './league';
+import { GOLF_EVENT_POINTS } from './league';
 
 export type SquadStanding = { played: number; points: number };
 
@@ -48,10 +49,9 @@ export function computeStandings(
       if (!divSquads.every(s => scores.some(g => g.squadId === s.id))) continue;
 
       const sorted = [...scores].sort((a, b) => a.totalScore - b.totalScore);
-      const placementPts = [8, 6, 4, 3];
       for (let i = 0; i < sorted.length; i++) {
         const sq = result[sorted[i].squadId];
-        if (sq) { sq.played++; sq.points += placementPts[i] ?? 0; }
+        if (sq) { sq.played++; sq.points += GOLF_EVENT_POINTS[i] ?? 0; }
       }
       continue;
     }

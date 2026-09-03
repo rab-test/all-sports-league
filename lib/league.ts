@@ -101,3 +101,8 @@ export type GolfScore = {
   squadId: string;
   totalScore: number;
 };
+
+// Points awarded per golf leaderboard placement (1st through 8th).
+// Kept as a single shared constant so the per-event leaderboard and season
+// standings calculation can never drift apart.
+export const GOLF_EVENT_POINTS = [8, 6, 4, 3, 2, 2, 0, 0];

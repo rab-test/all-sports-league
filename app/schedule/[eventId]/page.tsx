@@ -5,10 +5,10 @@ import {
   loadPools, loadFixtures, loadSquads, loadGolfScores,
 } from '../../../lib/data';
 import type { Fixture } from '../../../lib/league';
+import { GOLF_EVENT_POINTS } from '../../../lib/league';
+import { GOLF_TEE_TIMES } from '../../../data/golf-tee-times';
 
 export const dynamic = 'force-dynamic';
-
-const GOLF_EVENT_POINTS = [8, 6, 4, 3, 2, 2, 0, 0];
 
 const SPORT_BADGE: Record<string, string> = {
   'Padel':             'bg-padel text-white',
@@ -218,6 +218,37 @@ export default async function EventInstancePage({ params }: { params: { eventId:
       </div>
 
       {isGolf ? (
+        <>
+        {GOLF_TEE_TIMES[instance.id] && (
+          <section className="mb-8">
+            <h2 className="mb-3 text-lg font-black text-navy">
+              Tee Times — {GOLF_TEE_TIMES[instance.id].course}
+            </h2>
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted">Time</th>
+                    {GOLF_TEE_TIMES[instance.id].teeLabels.map(label => (
+                      <th key={label} className="px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-muted">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {GOLF_TEE_TIMES[instance.id].slots.map((slot, i) => (
+                    <tr key={slot.time} className={`border-t border-gray-100 ${i % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
+                      <td className="px-4 py-2.5 tabular-nums font-semibold text-muted">{slot.time}</td>
+                      <td className="px-4 py-2.5 font-semibold text-navy">{slot.tee1 ?? '—'}</td>
+                      <td className="px-4 py-2.5 font-semibold text-navy">{slot.tee10 ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         <section>
           <h2 className="mb-3 text-lg font-black text-navy">Leaderboard</h2>
           {golfScores.length === 0 ? (
@@ -252,6 +283,7 @@ export default async function EventInstancePage({ params }: { params: { eventId:
             </div>
           )}
         </section>
+        </>
       ) : (
         <>
           {/* ── Pools ── */}
