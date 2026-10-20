@@ -37,7 +37,7 @@ function buildRoundRobin(
 }
 
 export async function POST(request: Request) {
-  const { eventInstanceId } = await request.json();
+  const { eventInstanceId, adminPassword } = await request.json();
 
   const [instances, squads, existingPools, existingFixtures] = await Promise.all([
     loadEventInstances(),
@@ -49,6 +49,13 @@ export async function POST(request: Request) {
   const instance = instances.find(i => i.id === eventInstanceId);
   if (!instance) {
     return NextResponse.json({ error: 'Event instance not found' }, { status: 404 });
+  }
+
+  // A draw that already exists can only be redone with the server-side admin
+  // password (not exposed in the UI), so it can't be overwritten by accident.
+  const alreadyDrawn = existingPools.some(p => p.eventInstanceId === eventInstanceId);
+  if (alreadyDrawn && (!process.env.ADMIN_PASSWORD || adminPassword !== process.env.ADMIN_PASSWORD)) {
+    return NextResponse.json({ error: 'Draw already exists; redraw not permitted' }, { status: 403 });
   }
 
   const divisionSquads = squads.filter(s => s.divisionId === instance.divisionId);

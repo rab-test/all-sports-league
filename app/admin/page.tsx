@@ -799,15 +799,6 @@ export default function AdminPage() {
                         {!isCaptain && <div className="border-b border-gray-100 px-5 py-4">
                           <div className="mb-3 flex items-center justify-between">
                             <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Draw</p>
-                            {instancePools.length > 0 && (
-                              <button
-                                disabled={isLocked || genDraw === instance.id}
-                                onClick={() => generateDraw(instance.id, true)}
-                                className="text-xs text-gray-400 underline underline-offset-2 hover:text-navy disabled:opacity-40 transition-colors"
-                              >
-                                {genDraw === instance.id ? 'Regenerating…' : 'Regenerate Draw'}
-                              </button>
-                            )}
                           </div>
 
                           {instancePools.length === 0 ? (
