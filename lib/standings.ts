@@ -1,5 +1,6 @@
 import type { Squad, EventInstance, EventDay, Pool, Fixture, GolfScore } from './league';
 import { GOLF_EVENT_POINTS } from './league';
+import { EVENT_POINTS_OVERRIDES } from '../data/event-points-overrides';
 
 export type SquadStanding = { played: number; points: number };
 
@@ -38,6 +39,9 @@ function computeEventInstancePoints(
   instPools: Pool[],
   golfScores: (GolfScore & { _recordId: string })[],
 ): Record<string, number> | null {
+  const override = EVENT_POINTS_OVERRIDES[instance.id];
+  if (override) return override;
+
   if (instance.sport === 'Golf') {
     const scores = golfScores.filter(g => g.eventInstanceId === instance.id);
     if (scores.length === 0) return null;
