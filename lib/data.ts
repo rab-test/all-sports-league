@@ -1,5 +1,5 @@
 import { fetchTable } from './airtable';
-import type { Season, Division, Squad, Player, EventDay, EventInstance, Pool, Fixture, GolfScore } from './league';
+import type { Season, Division, Squad, Player, EventDay, EventInstance, Pool, Fixture, GolfScore, Placement } from './league';
 
 function parseArr(val: unknown): string[] {
   if (!val) return [];
@@ -69,5 +69,14 @@ export async function loadGolfScores(): Promise<(GolfScore & { _recordId: string
     eventInstanceId: r.eventInstanceId as string,
     squadId: r.squadId as string,
     totalScore: r.totalScore as number,
+  }));
+}
+
+export async function loadPlacements(): Promise<Placement[]> {
+  const records = await fetchTable<Record<string, unknown>>('Placements');
+  return records.map(r => ({
+    eventInstanceId: r.eventInstanceId as string,
+    squadId: r.squadId as string,
+    position: Number(r.position),
   }));
 }

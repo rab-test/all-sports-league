@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   loadSquads, loadDivisions, loadPlayers,
-  loadEventDays, loadEventInstances, loadPools, loadFixtures,
+  loadEventDays, loadEventInstances, loadPools, loadFixtures, loadPlacements,
 } from '../../../lib/data';
-import type { Fixture, Pool } from '../../../lib/league';
+import type { Fixture, Pool, EventInstance, Placement } from '../../../lib/league';
+import { RANKED_EVENT_POINTS, PRESET_RANKED, PRESET_FINALS } from '../../../lib/league';
 
 const SPORT_BORDER: Record<string, string> = {
   'Padel':             'border-l-padel',
@@ -15,7 +16,7 @@ const SPORT_BORDER: Record<string, string> = {
 };
 
 const ROUND_LABEL: Record<string, string> = {
-  pool: 'Pool', semi: 'Semi-Final', final: 'Final', '3rd-4th': '3rd / 4th',
+  pool: 'Pool', semi: 'Semi-Final', final: 'Final', '3rd-4th': '3rd / 4th', tie: 'Finals',
 };
 
 function formatDate(iso: string): string {
@@ -46,7 +47,14 @@ function getSquadEventPoints(
   squadId: string,
   instanceFixtures: Fixture[],
   instancePools: Pool[],
+  instance: EventInstance,
+  placements: Placement[],
 ): number {
+  if (instance.formatPresetId === PRESET_FINALS) return 0;
+  if (instance.formatPresetId === PRESET_RANKED) {
+    const pos = placements.find(p => p.eventInstanceId === instance.id && p.squadId === squadId)?.position;
+    return pos ? RANKED_EVENT_POINTS[pos - 1] ?? 0 : 0;
+  }
   const finalFx = instanceFixtures.find(f => f.round === 'final');
   const thirdFx = instanceFixtures.find(f => f.round === '3rd-4th');
   const poolFxs = instanceFixtures.filter(f => f.round === 'pool');
@@ -68,7 +76,7 @@ function getSquadEventPoints(
 }
 
 export default async function SquadPage({ params }: { params: { squadId: string } }) {
-  const [squads, divisions, players, eventDays, eventInstances, pools, fixtures] = await Promise.all([
+  const [squads, divisions, players, eventDays, eventInstances, pools, fixtures, placements] = await Promise.all([
     loadSquads(),
     loadDivisions(),
     loadPlayers(),
@@ -76,6 +84,7 @@ export default async function SquadPage({ params }: { params: { squadId: string 
     loadEventInstances(),
     loadPools(),
     loadFixtures(),
+    loadPlacements(),
   ]);
 
   const squad = squads.find(s => s.id === params.squadId);
@@ -113,6 +122,8 @@ export default async function SquadPage({ params }: { params: { squadId: string 
       squad.id,
       fixtures.filter(f => f.eventInstanceId === inst.id),
       pools.filter(p => p.eventInstanceId === inst.id),
+      inst,
+      placements,
     );
   }
 
@@ -125,6 +136,8 @@ export default async function SquadPage({ params }: { params: { squadId: string 
           s.id,
           fixtures.filter(f => f.eventInstanceId === inst.id),
           pools.filter(p => p.eventInstanceId === inst.id),
+          inst,
+          placements,
         );
       }
       return { id: s.id, pts };
@@ -214,7 +227,7 @@ export default async function SquadPage({ params }: { params: { squadId: string 
               const poolFxs      = instFxs.filter(f => f.round === 'pool' && f.poolId === pool?.id);
               const poolStandings = pool ? computePoolStandings(pool.squadIds, poolFxs) : [];
               const poolRank     = poolStandings.findIndex(s => s.id === squad.id);
-              const pts          = getSquadEventPoints(squad.id, instFxs, instPools);
+              const pts          = getSquadEventPoints(squad.id, instFxs, instPools, inst, placements);
               const borderClass  = SPORT_BORDER[inst.sport] ?? 'border-l-gray-400';
 
               return (

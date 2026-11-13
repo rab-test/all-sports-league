@@ -89,11 +89,19 @@ export type Fixture = {
   pair2B?: number;
   pair3A?: number;
   pair3B?: number;
-  round: 'pool' | 'semi' | 'final' | '3rd-4th';
+  round: 'pool' | 'semi' | 'final' | '3rd-4th' | 'tie';
   sequence: number;
   startTime?: string;
   locked?: boolean;
   sfOverride?: boolean;
+};
+
+// A squad's finishing position in an event, entered directly by the admin
+// (used for the Challenger cricket pools, where 1st-6th is keyed in).
+export type Placement = {
+  eventInstanceId: string;
+  squadId: string;
+  position: number;
 };
 
 export type GolfScore = {
@@ -106,3 +114,11 @@ export type GolfScore = {
 // Kept as a single shared constant so the per-event leaderboard and season
 // standings calculation can never drift apart.
 export const GOLF_EVENT_POINTS = [8, 6, 4, 3, 2, 2, 0, 0];
+
+// Challenger cricket (two pools of 3): 1st-4th as normal, both pool-last teams
+// (5th and 6th) get 1 point.
+export const RANKED_EVENT_POINTS = [8, 6, 4, 3, 1, 1];
+
+// Format presets that aren't scored from pool/knockout fixtures.
+export const PRESET_RANKED = 'preset-c'; // pools of 3, admin enters the 1-6 ranking
+export const PRESET_FINALS = 'preset-d'; // Finals Weekend ties, no season points

@@ -2,13 +2,13 @@ export const dynamic = 'force-dynamic';
 
 import {
   loadDivisions, loadSquads, loadPlayers,
-  loadEventInstances, loadFixtures, loadPools, loadGolfScores,
+  loadEventInstances, loadFixtures, loadPools, loadGolfScores, loadPlacements,
 } from '../../lib/data';
 import { computeStandings } from '../../lib/standings';
 import SquadsClient from './SquadsClient';
 
 export default async function SquadsPage() {
-  const [divisions, squads, players, eventInstances, fixtures, pools, golfScores] = await Promise.all([
+  const [divisions, squads, players, eventInstances, fixtures, pools, golfScores, placements] = await Promise.all([
     loadDivisions(),
     loadSquads(),
     loadPlayers(),
@@ -16,9 +16,10 @@ export default async function SquadsPage() {
     loadFixtures(),
     loadPools(),
     loadGolfScores(),
+    loadPlacements(),
   ]);
 
-  const standings = computeStandings(squads, eventInstances, pools, fixtures, golfScores);
+  const standings = computeStandings(squads, eventInstances, pools, fixtures, golfScores, placements);
 
   const squadRows = squads
     .map(squad => ({

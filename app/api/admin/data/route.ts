@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { loadEventInstances, loadEventDays, loadDivisions, loadPools, loadSquads, loadFixtures, loadGolfScores } from '../../../../lib/data';
+import { loadEventInstances, loadEventDays, loadDivisions, loadPools, loadSquads, loadFixtures, loadGolfScores, loadPlacements } from '../../../../lib/data';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const [instances, eventDays, divisions, pools, squads, fixtures, golfScores] = await Promise.all([
+  const [instances, eventDays, divisions, pools, squads, fixtures, golfScores, placements] = await Promise.all([
     loadEventInstances(),
     loadEventDays(),
     loadDivisions(),
@@ -12,6 +12,7 @@ export async function GET() {
     loadSquads(),
     loadFixtures(),
     loadGolfScores(),
+    loadPlacements(),
   ]);
 
   const eventDayMap = Object.fromEntries(eventDays.map(d => [d.id, d]));
@@ -23,5 +24,5 @@ export async function GET() {
     division: divisionMap[i.divisionId] ?? null,
   }));
 
-  return NextResponse.json({ instances: joinedInstances, pools, fixtures, squads, golfScores });
+  return NextResponse.json({ instances: joinedInstances, pools, fixtures, squads, golfScores, placements });
 }

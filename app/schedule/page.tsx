@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { loadEventDays, loadEventInstances, loadDivisions } from '../../lib/data';
+import { PRESET_FINALS } from '../../lib/league';
+
+export const dynamic = 'force-dynamic';
 
 const SPORT_STYLES: Record<string, string> = {
   'Padel':             'bg-padel text-white',
@@ -32,11 +35,14 @@ export default async function SchedulePage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-1 text-3xl font-black text-navy">2026 Schedule</h1>
-      <p className="mb-8 text-sm text-muted">2026 Season — 7 Events</p>
+      <p className="mb-8 text-sm text-muted">2026 Season — {sorted.length} Events</p>
 
       <ol className="flex flex-col gap-4">
         {sorted.map((day, index) => {
-          const instances = eventInstances.filter(i => i.eventDayId === day.id);
+          const instances = eventInstances
+            .filter(i => i.eventDayId === day.id)
+            .sort((a, b) => b.divisionId.localeCompare(a.divisionId)); // Premier before Challenger
+          const isFinalsDay = instances.some(i => i.formatPresetId === PRESET_FINALS);
           const { weekday, date } = formatDate(day.date);
 
           return (
@@ -81,6 +87,16 @@ export default async function SchedulePage() {
                   );
                 })}
               </ul>
+
+              {isFinalsDay && (
+                <Link
+                  href="/finals"
+                  className="mx-5 mb-4 flex items-center justify-between rounded-lg bg-navy px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-navy/90"
+                >
+                  <span>Finals Weekend — ties &amp; final standings</span>
+                  <span>›</span>
+                </Link>
+              )}
             </li>
           );
         })}

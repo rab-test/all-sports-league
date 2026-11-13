@@ -1,7 +1,7 @@
 [
   {
     "id": "preset-a",
-    "name": "2 Pools → Knockout",
+    "name": "2 Pools \u2192 Knockout",
     "type": "preset-a",
     "description": "2 pools of 4, pool round robin, semis, final, 3rd/4th playoff"
   },
@@ -9,6 +9,18 @@
     "id": "preset-b",
     "name": "Golf Leaderboard",
     "type": "preset-b",
-    "description": "Golf leaderboard day — no matchups, rank squads by total team score"
+    "description": "Golf leaderboard day \u2014 no matchups, rank squads by total team score"
+  },
+  {
+    "id": "preset-c",
+    "name": "Pools of 3 \u2192 Ranking",
+    "type": "preset-c",
+    "description": "2 pools of 3, final and 3rd/4th playoff; admin enters the 1st-6th ranking"
+  },
+  {
+    "id": "preset-d",
+    "name": "Finals Weekend Ties",
+    "type": "preset-d",
+    "description": "Pairings (1v2, 3v4, ...) played over several sports; no season points"
   }
 ]

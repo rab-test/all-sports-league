@@ -2,10 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   loadEventInstances, loadEventDays, loadDivisions,
-  loadPools, loadFixtures, loadSquads, loadGolfScores,
+  loadPools, loadFixtures, loadSquads, loadGolfScores, loadPlacements,
 } from '../../../lib/data';
 import type { Fixture } from '../../../lib/league';
-import { GOLF_EVENT_POINTS } from '../../../lib/league';
+import { GOLF_EVENT_POINTS, RANKED_EVENT_POINTS, PRESET_RANKED, PRESET_FINALS } from '../../../lib/league';
+import { tieLabel } from '../../../lib/finals';
 import { GOLF_TEE_TIMES } from '../../../data/golf-tee-times';
 
 export const dynamic = 'force-dynamic';
@@ -163,7 +164,7 @@ function FixtureRow({
 }
 
 export default async function EventInstancePage({ params }: { params: { eventId: string } }) {
-  const [instances, eventDays, divisions, pools, fixtures, squads, allGolfScores] = await Promise.all([
+  const [instances, eventDays, divisions, pools, fixtures, squads, allGolfScores, allPlacements] = await Promise.all([
     loadEventInstances(),
     loadEventDays(),
     loadDivisions(),
@@ -171,6 +172,7 @@ export default async function EventInstancePage({ params }: { params: { eventId:
     loadFixtures(),
     loadSquads(),
     loadGolfScores(),
+    loadPlacements(),
   ]);
 
   const instance = instances.find(i => i.id === params.eventId);
@@ -186,6 +188,11 @@ export default async function EventInstancePage({ params }: { params: { eventId:
   const knockoutFixtures = instanceFixtures.filter(f => f.round !== 'pool');
 
   const isGolf     = instance.sport === 'Golf';
+  const isFinals   = instance.formatPresetId === PRESET_FINALS;
+  const isRanked   = instance.formatPresetId === PRESET_RANKED;
+  const placements = allPlacements
+    .filter(p => p.eventInstanceId === params.eventId)
+    .sort((a, b) => a.position - b.position);
   const badgeClass = SPORT_BADGE[instance.sport] ?? 'bg-gray-200 text-navy';
 
   const golfScores = allGolfScores
@@ -217,7 +224,27 @@ export default async function EventInstancePage({ params }: { params: { eventId:
         <p className="mt-1 text-sm text-muted">{eventDay.venues.join(' · ')}</p>
       </div>
 
-      {isGolf ? (
+      {isFinals ? (
+        <section>
+          <h2 className="mb-3 text-lg font-black text-navy">Finals Fixtures</h2>
+          <div className="flex flex-col gap-2">
+            {[...instanceFixtures]
+              .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
+              .map(fx => (
+                <FixtureRow
+                  key={fx.id}
+                  fx={fx}
+                  squadMap={squadMap}
+                  label={tieLabel(fx.sequence)}
+                  highlightFinal={fx.sequence === 1}
+                />
+              ))}
+          </div>
+          <Link href="/finals" className="mt-4 inline-block text-sm font-bold text-accent hover:underline">
+            See tie scores &amp; final standings →
+          </Link>
+        </section>
+      ) : isGolf ? (
         <>
         {GOLF_TEE_TIMES[instance.id] && (
           <section className="mb-8">
@@ -380,12 +407,38 @@ export default async function EventInstancePage({ params }: { params: { eventId:
             })()}
           </section>
 
+          {/* ── Final ranking (pools of 3) ── */}
+          {isRanked && (
+            <section className="mb-8">
+              <h2 className="mb-3 text-lg font-black text-navy">Final Ranking</h2>
+              {placements.length === 0 ? (
+                <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
+                  Ranking published after the final
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {placements.map((pl, i) => (
+                        <tr key={pl.squadId} className={`border-t border-gray-100 first:border-0 ${i % 2 === 1 ? 'bg-gray-50' : 'bg-white'}`}>
+                          <td className="w-10 px-4 py-2.5 text-center font-semibold text-muted">{pl.position}</td>
+                          <td className="px-4 py-2.5 font-semibold text-navy">{squadMap[pl.squadId]?.name ?? pl.squadId}</td>
+                          <td className="px-4 py-2.5 text-right font-black text-accent">{RANKED_EVENT_POINTS[pl.position - 1] ?? 0} pts</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* ── Knockout ── */}
           <section>
             <h2 className="mb-3 text-lg font-black text-navy">Knockout</h2>
             {knockoutFixtures.length === 0 ? (
               <div className="rounded-xl border border-gray-200 bg-white p-5 text-center text-sm text-muted shadow-sm">
-                Bracket published after pool stage
+                {isRanked ? 'Final and 3rd/4th set once both pools are complete' : 'Bracket published after pool stage'}
               </div>
             ) : (
               <div className="flex flex-col gap-4">

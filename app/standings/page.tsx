@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import {
-  loadDivisions, loadSquads, loadEventDays, loadEventInstances, loadPools, loadFixtures, loadGolfScores,
+  loadDivisions, loadSquads, loadEventDays, loadEventInstances, loadPools, loadFixtures, loadGolfScores, loadPlacements,
 } from '../../lib/data';
 import { computeStandings, computeStandingsHistory } from '../../lib/standings';
 import type { SquadStanding } from '../../lib/standings';
@@ -12,7 +12,7 @@ export type { SquadStanding };
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function StandingsPage() {
-  const [divisions, squads, eventDays, instances, pools, fixtures, golfScores] = await Promise.all([
+  const [divisions, squads, eventDays, instances, pools, fixtures, golfScores, placements] = await Promise.all([
     loadDivisions(),
     loadSquads(),
     loadEventDays(),
@@ -20,10 +20,11 @@ export default async function StandingsPage() {
     loadPools(),
     loadFixtures(),
     loadGolfScores(),
+    loadPlacements(),
   ]);
 
-  const standings = computeStandings(squads, instances, pools, fixtures, golfScores);
-  const history = computeStandingsHistory(squads, instances, eventDays, pools, fixtures, golfScores);
+  const standings = computeStandings(squads, instances, pools, fixtures, golfScores, placements);
+  const history = computeStandingsHistory(squads, instances, eventDays, pools, fixtures, golfScores, placements);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">

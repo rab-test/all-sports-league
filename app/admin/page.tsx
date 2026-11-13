@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { RANKED_EVENT_POINTS, PRESET_RANKED, PRESET_FINALS } from '../../lib/league';
+import { tieLabel } from '../../lib/finals';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -44,17 +46,20 @@ type JoinedInstance = {
   eventDay: EventDay; division: Division;
 };
 
+type Placement = { eventInstanceId: string; squadId: string; position: number };
+
 type AdminData = {
   instances: JoinedInstance[];
   pools: Pool[];
   fixtures: StoredFixture[];
   squads: Squad[];
   golfScores: GolfScore[];
+  placements: Placement[];
 };
 
 type PadelInput = { p1a: string; p1b: string; p2a: string; p2b: string; p3a: string; p3b: string };
 type SfOverrideState = { enabled: boolean; squadAId: string; squadBId: string };
-type EventStatus = 'draw-pending' | 'in-progress' | 'complete' | 'locked';
+type EventStatus = 'draw-pending' | 'upcoming' | 'in-progress' | 'complete' | 'locked';
 
 // ── Status helpers ───────────────────────────────────────────────────────────
 
@@ -64,8 +69,23 @@ function getEventStatus(
   fixtures: StoredFixture[],
   golfScores: GolfScore[],
   divisionSquads: Squad[],
+  placements: Placement[],
 ): EventStatus {
   if (instance.locked) return 'locked';
+
+  if (instance.formatPresetId === PRESET_RANKED) {
+    const ranked = placements.filter(p => p.eventInstanceId === instance.id).length;
+    if (ranked >= RANKED_EVENT_POINTS.length) return 'complete';
+    const anyScore = fixtures.some(f => f.eventInstanceId === instance.id && f.scoreA != null);
+    return anyScore || ranked > 0 ? 'in-progress' : 'upcoming';
+  }
+
+  if (instance.formatPresetId === PRESET_FINALS) {
+    const fxs = fixtures.filter(f => f.eventInstanceId === instance.id);
+    const done = fxs.filter(f => f.scoreA != null && f.scoreB != null).length;
+    if (fxs.length > 0 && done === fxs.length) return 'complete';
+    return done > 0 ? 'in-progress' : 'upcoming';
+  }
 
   if (instance.sport === 'Golf') {
     const scored = golfScores.filter(g => g.eventInstanceId === instance.id);
@@ -88,6 +108,7 @@ function getEventStatus(
 
 const STATUS_CONFIG: Record<EventStatus, { label: string; cls: string }> = {
   'draw-pending': { label: 'Draw Pending', cls: 'bg-gray-100 text-gray-500' },
+  'upcoming':     { label: 'Not Started',  cls: 'bg-gray-100 text-gray-500' },
   'in-progress':  { label: 'In Progress',  cls: 'bg-amber-100 text-amber-700' },
   'complete':     { label: 'Complete',     cls: 'bg-green-100 text-green-700' },
   'locked':       { label: 'Locked',       cls: 'bg-red-100 text-red-600' },
@@ -115,6 +136,10 @@ export default function AdminPage() {
   const [padelInputs, setPadelInputs] = useState<Record<string, PadelInput>>({});
   const [sfOverrides, setSfOverrides] = useState<Record<string, SfOverrideState>>({});
   const [golfInputs,  setGolfInputs]  = useState<Record<string, string>>({});
+  // eventInstanceId -> squadIds in finishing order (index 0 = 1st)
+  const [rankInputs,  setRankInputs]  = useState<Record<string, string[]>>({});
+  const [savingRank,  setSavingRank]  = useState<string | null>(null);
+  const [rankError,   setRankError]   = useState<string | null>(null);
 
   // UI expand/collapse state
   const [expandedCards,   setExpandedCards]   = useState<Set<string>>(new Set());
@@ -189,6 +214,22 @@ export default function AdminPage() {
       }
     }
     setSfOverrides(sfo);
+
+    // ── ranking inputs (rebuilt from saved placements, unsaved picks are kept) ──
+    setRankInputs(prev => {
+      const next = { ...prev };
+      for (const inst of d.instances) {
+        if (inst.formatPresetId !== PRESET_RANKED) continue;
+        const saved = d.placements
+          .filter(p => p.eventInstanceId === inst.id)
+          .sort((a, b) => a.position - b.position)
+          .map(p => p.squadId);
+        if (!prev[inst.id] || prev[inst.id].every(v => v === '')) {
+          next[inst.id] = RANKED_EVENT_POINTS.map((_, i) => saved[i] ?? '');
+        }
+      }
+      return next;
+    });
 
     // ── golf inputs ─────────────────────────────────────────────────────────
     setGolfInputs(prev => {
@@ -318,6 +359,32 @@ export default function AdminPage() {
       markSaved(key);
     } finally {
       setSavingGolf(null);
+    }
+  }
+
+  async function saveRanking(eid: string) {
+    const picks = rankInputs[eid] ?? [];
+    if (picks.length !== RANKED_EVENT_POINTS.length || picks.some(v => v === '')) {
+      setRankError('Pick a squad for every position');
+      return;
+    }
+    if (new Set(picks).size !== picks.length) {
+      setRankError('Each squad can only be ranked once');
+      return;
+    }
+    setRankError(null);
+    setSavingRank(eid);
+    try {
+      const res = await fetch('/api/admin/placement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventInstanceId: eid, squadIds: picks }),
+      });
+      if (!res.ok) setRankError((await res.json()).error ?? 'Could not save ranking');
+      else markSaved(`rank-${eid}`);
+      await fetchData();
+    } finally {
+      setSavingRank(null);
     }
   }
 
@@ -708,11 +775,13 @@ export default function AdminPage() {
 
           {sorted.map(instance => {
             const divisionSquads = data.squads.filter(s => s.divisionId === instance.divisionId);
-            const status         = getEventStatus(instance, data.pools, data.fixtures, data.golfScores, divisionSquads);
+            const status         = getEventStatus(instance, data.pools, data.fixtures, data.golfScores, divisionSquads, data.placements);
             const statusCfg      = STATUS_CONFIG[status];
             const isExpanded     = expandedCards.has(instance.id);
             const isPadel        = instance.sport === 'Padel';
             const isGolf         = instance.sport === 'Golf';
+            const isRanked       = instance.formatPresetId === PRESET_RANKED;
+            const isFinals       = instance.formatPresetId === PRESET_FINALS;
             const isLocked       = instance.locked;
             const badgeCls       = SPORT_BADGE[instance.sport] ?? 'bg-gray-400 text-white';
 
@@ -761,7 +830,35 @@ export default function AdminPage() {
                 {isExpanded && (
                   <div className="border-t border-gray-100">
 
-                    {isGolf ? (
+                    {isFinals ? (
+                      /* ── Finals Weekend ties ── */
+                      <div className="px-5 py-5">
+                        <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400">Results</p>
+                        {allFx.some(f => !f.squadAId) && (
+                          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                            Squads fill in once the Challenger cricket ranking is saved.
+                          </p>
+                        )}
+                        <div className="flex flex-col gap-1.5">
+                          {[...allFx]
+                            .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''))
+                            .map(fx => (
+                              <div key={fx.id}>
+                                <p className="mb-1 mt-2 text-xs font-semibold text-gray-400">
+                                  {fx.startTime} · {tieLabel(fx.sequence)}
+                                  {fx.scoreA != null && fx.scoreA === fx.scoreB && (
+                                    <span className="ml-2 text-red-500">Level — a winner is needed</span>
+                                  )}
+                                </p>
+                                {fx.squadAId && fx.squadBId
+                                  ? renderPoolRow(fx, isPadel, isLocked, squadMap)
+                                  : <div className="rounded-lg border border-dashed border-gray-200 px-3 py-2.5 text-sm text-gray-300">TBD</div>}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
+                    ) : isGolf ? (
                       /* ── Golf ── */
                       <div className="px-5 py-5">
                         <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400">Scores</p>
@@ -796,7 +893,7 @@ export default function AdminPage() {
                       /* ── Preset A ── */
                       <>
                         {/* SECTION 1 — DRAW (admin only) */}
-                        {!isCaptain && <div className="border-b border-gray-100 px-5 py-4">
+                        {!isCaptain && !isRanked && <div className="border-b border-gray-100 px-5 py-4">
                           <div className="mb-3 flex items-center justify-between">
                             <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Draw</p>
                           </div>
@@ -852,6 +949,55 @@ export default function AdminPage() {
                                   </div>
                                 );
                               })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* SECTION 2b — FINAL RANKING (pools of 3) */}
+                        {isRanked && !isCaptain && (
+                          <div className="border-b border-gray-100 px-5 py-4">
+                            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-gray-400">Final Ranking</p>
+                            <p className="mb-4 text-xs text-gray-400">
+                              Saving sets season points (8 / 6 / 4 / 3 / 1 / 1) and seeds the Challenger touch rugby and padel fixtures.
+                            </p>
+                            <div className="flex flex-col gap-1.5">
+                              {RANKED_EVENT_POINTS.map((pts, i) => {
+                                const picks = rankInputs[instance.id] ?? [];
+                                return (
+                                  <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2">
+                                    <span className="w-6 text-sm font-bold text-gray-400">{i + 1}</span>
+                                    <select
+                                      disabled={isLocked}
+                                      value={picks[i] ?? ''}
+                                      onChange={e => setRankInputs(p => {
+                                        const next = [...(p[instance.id] ?? RANKED_EVENT_POINTS.map(() => ''))];
+                                        next[i] = e.target.value;
+                                        return { ...p, [instance.id]: next };
+                                      })}
+                                      className="flex-1 rounded border border-gray-200 bg-white px-2 py-1.5 text-sm text-navy focus:border-accent focus:outline-none disabled:opacity-40"
+                                    >
+                                      <option value="">Select squad…</option>
+                                      {divisionSquads.map(s => (
+                                        <option key={s.id} value={s.id} disabled={picks.includes(s.id) && picks[i] !== s.id}>
+                                          {s.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <span className="w-12 shrink-0 text-right text-xs font-bold text-accent">{pts} pts</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="mt-3 flex items-center gap-3">
+                              <button
+                                disabled={isLocked || savingRank === instance.id}
+                                onClick={() => saveRanking(instance.id)}
+                                className="rounded-lg bg-navy px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-navy/80 disabled:opacity-40"
+                              >
+                                {savingRank === instance.id ? 'Saving…' : 'Save Ranking'}
+                              </button>
+                              {savedKeys.has(`rank-${instance.id}`) && <span className="text-xs font-medium text-green-600">Saved ✓</span>}
+                              {rankError && <span className="text-xs font-medium text-red-500">{rankError}</span>}
                             </div>
                           </div>
                         )}

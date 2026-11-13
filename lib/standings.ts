@@ -1,5 +1,5 @@
-import type { Squad, EventInstance, EventDay, Pool, Fixture, GolfScore } from './league';
-import { GOLF_EVENT_POINTS } from './league';
+import type { Squad, EventInstance, EventDay, Pool, Fixture, GolfScore, Placement } from './league';
+import { GOLF_EVENT_POINTS, RANKED_EVENT_POINTS, PRESET_RANKED, PRESET_FINALS } from './league';
 import { EVENT_POINTS_OVERRIDES } from '../data/event-points-overrides';
 
 export type SquadStanding = { played: number; points: number };
@@ -38,9 +38,21 @@ function computeEventInstancePoints(
   instFx: Fixture[],
   instPools: Pool[],
   golfScores: (GolfScore & { _recordId: string })[],
+  placements: Placement[],
 ): Record<string, number> | null {
   const override = EVENT_POINTS_OVERRIDES[instance.id];
   if (override) return override;
+
+  // Finals Weekend ties don't add season points; final standings come from the ties.
+  if (instance.formatPresetId === PRESET_FINALS) return null;
+
+  if (instance.formatPresetId === PRESET_RANKED) {
+    const ranked = placements.filter(p => p.eventInstanceId === instance.id);
+    if (ranked.length < RANKED_EVENT_POINTS.length) return null;
+    const pointsMap: Record<string, number> = {};
+    for (const p of ranked) pointsMap[p.squadId] = RANKED_EVENT_POINTS[p.position - 1] ?? 0;
+    return pointsMap;
+  }
 
   if (instance.sport === 'Golf') {
     const scores = golfScores.filter(g => g.eventInstanceId === instance.id);
@@ -99,6 +111,7 @@ export function computeStandings(
   pools: Pool[],
   fixtures: Fixture[],
   golfScores: (GolfScore & { _recordId: string })[],
+  placements: Placement[] = [],
 ): Record<string, SquadStanding> {
   const result: Record<string, SquadStanding> = {};
   for (const s of squads) result[s.id] = { played: 0, points: 0 };
@@ -108,7 +121,7 @@ export function computeStandings(
     const instFx = fixtures.filter(f => f.eventInstanceId === instance.id);
     const instPools = pools.filter(p => p.eventInstanceId === instance.id);
 
-    const pointsMap = computeEventInstancePoints(instance, divSquads, instFx, instPools, golfScores);
+    const pointsMap = computeEventInstancePoints(instance, divSquads, instFx, instPools, golfScores, placements);
     if (!pointsMap) continue;
 
     for (const squad of divSquads) {
@@ -141,6 +154,7 @@ export function computeStandingsHistory(
   pools: Pool[],
   fixtures: Fixture[],
   golfScores: (GolfScore & { _recordId: string })[],
+  placements: Placement[] = [],
 ): Record<string, DivisionHistory> {
   const dayById = new Map(eventDays.map(d => [d.id, d]));
   const sortedInstances = [...instances].sort((a, b) => {
@@ -158,7 +172,7 @@ export function computeStandingsHistory(
     const instFx = fixtures.filter(f => f.eventInstanceId === instance.id);
     const instPools = pools.filter(p => p.eventInstanceId === instance.id);
 
-    const pointsMap = computeEventInstancePoints(instance, divSquads, instFx, instPools, golfScores);
+    const pointsMap = computeEventInstancePoints(instance, divSquads, instFx, instPools, golfScores, placements);
     if (!pointsMap) continue;
 
     for (const squad of divSquads) {

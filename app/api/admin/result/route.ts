@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchTable, updateRecord } from '../../../../lib/airtable';
-import { loadPools } from '../../../../lib/data';
+import { loadPools, loadEventInstances } from '../../../../lib/data';
+import { PRESET_RANKED } from '../../../../lib/league';
 
 type RawFx = Record<string, unknown> & { _recordId: string };
 type StRow = { id: string; pts: number; gd: number };
@@ -139,6 +140,25 @@ async function maybeUpdateFinal(eid: string, allFx: RawFx[]) {
   ]);
 }
 
+// Pools of 3 (Challenger cricket): once both pools are complete, pool winners
+// meet in the final and runners-up in the 3rd/4th playoff.
+async function maybeUpdateRankedKnockout(eid: string, allFx: RawFx[]) {
+  const pools = (await loadPools()).filter(p => p.eventInstanceId === eid);
+  const poolFx = allFx.filter(f => f.eventInstanceId === eid && f.round === 'pool');
+  const done = (f: RawFx) => f.scoreA != null && f.scoreA !== '' && f.scoreB != null && f.scoreB !== '';
+  if (pools.length !== 2 || poolFx.length === 0 || !poolFx.every(done)) return;
+
+  const [a, b] = [...pools].sort((x, y) => x.name.localeCompare(y.name))
+    .map(p => poolStandings(p.squadIds, poolFx.filter(f => f.poolId === p.id)));
+
+  const final = allFx.find(f => f.id === `final-${eid}`);
+  const third = allFx.find(f => f.id === `3rd4th-${eid}`);
+  await Promise.all([
+    final ? updateRecord('Fixtures', final._recordId, { squadAId: a[0].id, squadBId: b[0].id }) : null,
+    third ? updateRecord('Fixtures', third._recordId, { squadAId: a[1].id, squadBId: b[1].id }) : null,
+  ]);
+}
+
 export async function POST(request: Request) {
   const body = await request.json();
   const { fixtureId } = body;
@@ -183,6 +203,11 @@ export async function POST(request: Request) {
     await maybeUpdateFinal(eid, updatedWithSemis);
   }
   if (round === 'semi') await maybeUpdateFinal(eid, updated);
+
+  if (round === 'pool') {
+    const instance = (await loadEventInstances()).find(i => i.id === eid);
+    if (instance?.formatPresetId === PRESET_RANKED) await maybeUpdateRankedKnockout(eid, updated);
+  }
 
   return NextResponse.json({ success: true });
 }
